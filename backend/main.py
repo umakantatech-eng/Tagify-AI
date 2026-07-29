@@ -55,9 +55,10 @@ async def process_user_batch(jobs_data: List[dict], api_key: Optional[str]):
                     jobs_store[job_id]["status"] = "completed"
                     jobs_store[job_id]["result"] = final_result
             
-            # The API call itself takes ~2 seconds. Reducing sleep to 0.5s as requested by user.
-            # WARNING: This pushes throughput to ~24 RPM, which may exceed Gemini's 15 RPM Free Tier limit.
-            await asyncio.sleep(0.5)
+            # Respect Gemini Free Tier limits: max 15 requests per minute per key (1 req per 4 seconds)
+            # Since each key has its own parallel task, 2 keys = 30 req/min, 4 keys = 60 req/min!
+            # The API call itself takes ~2 seconds, adding 2.5s guarantees we stay safely under 15 RPM per key.
+            await asyncio.sleep(2.5)
                     
         except Exception as e:
             for job in chunk:

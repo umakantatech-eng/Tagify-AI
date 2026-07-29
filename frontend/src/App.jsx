@@ -156,13 +156,14 @@ function App() {
       }
       setUsageCount(newUsage);
       
-      const activeKey = apiKeys.length > 0 ? apiKeys[Math.floor(Math.random() * apiKeys.length)] : '';
+      const validKeys = apiKeys.filter(k => typeof k === 'string' && k.trim().length > 0);
+      const activeKeysStr = validKeys.length > 0 ? validKeys.join(',') : '';
       try {
         const response = await fetch(`${API_BASE}/analyze-bulk`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-User-API-Key': activeKey
+            'X-User-API-Key': activeKeysStr
           },
           body: JSON.stringify({ urls: [...new Set(urls)], custom_prompt: customPromptText }),
         });
@@ -196,13 +197,14 @@ function App() {
     } else {
       // NORMAL CHAT FLOW
       setUsageCount(prev => prev + 1);
-      const activeKey = apiKeys.length > 0 ? apiKeys[Math.floor(Math.random() * apiKeys.length)] : '';
+      const validKeys = apiKeys.filter(k => typeof k === 'string' && k.trim().length > 0);
+      const activeKeysStr = validKeys.length > 0 ? validKeys.join(',') : '';
       try {
         const response = await fetch(`${API_BASE}/chat`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-User-API-Key': activeKey
+            'X-User-API-Key': activeKeysStr
           },
           body: JSON.stringify({ message: inputCopy, history: chatHistory.slice(-10) }),
         });

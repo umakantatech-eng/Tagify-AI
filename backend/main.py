@@ -54,6 +54,10 @@ async def process_user_batch(jobs_data: List[dict], api_key: Optional[str]):
                     final_result = validate_and_correct(ai_result)
                     jobs_store[job_id]["status"] = "completed"
                     jobs_store[job_id]["result"] = final_result
+            
+            # Respect Gemini Free Tier limits: max 15 requests per minute per key (1 req per 4 seconds)
+            # The API call itself takes ~2 seconds, adding 2.5s guarantees we stay under limits.
+            await asyncio.sleep(2.5)
                     
         except Exception as e:
             for job in chunk:
@@ -130,8 +134,19 @@ async def analyze_bulk(payload: UrlAnalyzeRequest, background_tasks: BackgroundT
             jobs_data.append({"job_id": job_id, "data": url, "is_url": True, "custom_prompt": payload.custom_prompt})
             results.append({"job_id": job_id, "url": url, "filename": filename})
             
-        background_tasks.add_task(process_user_batch, jobs_data, x_user_api_key)
-        return {"jobs": results, "message": f"{len(urls)} jobs added to queue"}
+        keys_list = [k.strip() for k in x_user_api_key.split(",") if k.strip()] if x_user_api_key else []
+        if not keys_list:
+            keys_list = [None]
+            
+        num_keys = len(keys_list)
+        segment_size = max(1, len(jobs_data) // num_keys + (1 if len(jobs_data) % num_keys > 0 else 0))
+        
+        for i in range(num_keys):
+            segment = jobs_data[i * segment_size : (i + 1) * segment_size]
+            if segment:
+                background_tasks.add_task(process_user_batch, segment, keys_list[i])
+                
+        return {"jobs": results, "message": f"{len(urls)} jobs added to queue distributed across {len(keys_list)} keys"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -164,7 +179,9 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest, x_user_api_key: Optional[str] = Header(None)):
     try:
-        result = await handle_chat_message(payload.message, payload.history, x_user_api_key)
+        keys_list = [k.strip() for k in x_user_api_key.split(",") if k.strip()] if x_user_api_key else []
+        active_key = keys_list[0] if keys_list else None
+        result = await handle_chat_message(payload.message, payload.history, active_key)
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
         return result

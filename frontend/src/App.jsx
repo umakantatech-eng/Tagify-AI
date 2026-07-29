@@ -101,7 +101,14 @@ function App() {
         
         setJobs(prev => prev.map(job => {
           const updated = statusMap[job.id];
-          if (updated) return { ...job, status: updated.status, result: updated.result || job.result };
+          if (updated) {
+            // Refund quota if job failed or was cancelled
+            if ((job.status === 'queued' || job.status === 'processing') && 
+                (updated.status === 'failed' || updated.status === 'cancelled')) {
+              setUsageCount(u => Math.max(0, u - 1));
+            }
+            return { ...job, status: updated.status, result: updated.result || job.result };
+          }
           return job;
         }));
       } catch (e) {
@@ -110,6 +117,23 @@ function App() {
     }, 3000);
     return () => clearInterval(interval);
   }, [jobs, isProcessing]);
+
+  const cancelJobs = async () => {
+    const activeJobs = jobs.filter(j => j.status === 'queued' || j.status === 'processing');
+    if (activeJobs.length === 0) return;
+    
+    try {
+      await fetch(`${API_BASE}/cancel-bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_ids: activeJobs.map(j => j.id) }),
+      });
+      showToast("Cancellation requested. Stopping remaining jobs...", "success");
+    } catch (e) {
+      console.error("Cancel error:", e);
+      showToast("Failed to cancel jobs", "error");
+    }
+  };
 
   // Handle Chat & Tagging Submission
   const handleSubmit = async () => {
@@ -547,10 +571,15 @@ function App() {
               <div className="progress-fill" style={{width: `${progressPercent}%`}}></div>
             </div>
           </div>
-          <div className="table-actions">
-             <button className="btn-outline brand"><Copy size={16}/> Copy for Sheets</button>
-             <button className="btn-solid"><Download size={16}/> Export CSV</button>
-          </div>
+            <div className="table-actions">
+              {isProcessing && (
+                <button className="btn-solid" onClick={cancelJobs} style={{ backgroundColor: '#451a1a', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                  <X size={16}/> Cancel
+                </button>
+              )}
+              <button className="btn-outline brand" onClick={copyToClipboard}><Copy size={16}/> Copy for Sheets</button>
+              <button className="btn-solid" onClick={exportCSV}><Download size={16}/> Export CSV</button>
+            </div>
         </div>
         
         <div className="table-scroll" style={{maxHeight: '400px'}}>

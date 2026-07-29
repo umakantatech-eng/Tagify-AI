@@ -27,9 +27,10 @@ def get_nearest_taxonomy_value(key, value):
             return valid_val
             
     # Substring match as fallback
-    for valid_val in valid_values:
-        if val_lower in valid_val.lower() or valid_val.lower() in val_lower:
-            return valid_val
+    if val_lower:  # Prevent empty strings from matching everything
+        for valid_val in valid_values:
+            if val_lower in valid_val.lower() or valid_val.lower() in val_lower:
+                return valid_val
             
     # Default if no match found
     if key in ["Length", "Sleeve Length", "Sleeve Styling", "Ornamentation", "Fit/Shape"]:

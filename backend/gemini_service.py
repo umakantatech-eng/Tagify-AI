@@ -27,10 +27,13 @@ Fit/Shape:
 - A-line: Flared from waist forming an 'A' shape, OR any straight cut top to bottom. (Merge all Straight into A-line).
 - Straight: DO NOT USE. Classify all straight kurtis as 'A-line'.
 Neck:
-- Boat: Wide neckline passing near the collarbones.
-- Notch: A round or mandarin collar with a distinct V-cut or slit in the front center (often with tie-ups). DO NOT call this Round.
-- V-neck: A clean, deep or shallow V shape, coming to a point at the chest. No extra collars. DO NOT call this Round.
-- Round: A simple circular curve. If there is ANY V-cut or split, it is NOT Round, it is Notch.
+- V-neck: The fabric is cut in straight diagonal lines from the shoulders down to the chest, forming a strict 'V'. NO round collar at the back/top.
+- Notch: Starts with a Round or Mandarin collar at the top/back, BUT has a small V-shaped slit or cut out in the front center. (Collar + V-slit = Notch). DO NOT call this V-neck.
+- Round: A simple, perfectly continuous circular curve. If there is ANY tiny V-cut or slit, it is NOT Round, it is Notch.
+- Mandarin: A short stand-up collar going around the neck, with NO deep V-slit. (If it has a V-slit, call it Notch).
+- Sweetheart: Curved neckline that looks like the top half of a heart (two curves meeting at the chest).
+- Keyhole: A closed neck with a distinct hole (circle or teardrop) cut out below the collar.
+- Boat: Very wide neckline passing horizontally near the collarbones, sitting wide on the shoulders.
 Sleeve Styling:
 - Bell: Normal at the top, but flaring out wide SPECIFICALLY at the bottom/cuff like a bell shape. DO NOT confuse with Flared.
 - Flared: Loosely widening continuously throughout the ENTIRE sleeve length.

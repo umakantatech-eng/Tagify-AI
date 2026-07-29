@@ -167,7 +167,7 @@ function App() {
           body: JSON.stringify({ urls: [...new Set(urls)], custom_prompt: customPromptText }),
         });
         const data = await response.json();
-        if (data.jobs) {
+        if (response.ok && data.jobs) {
           const newJobs = data.jobs.map((j, idx) => ({
             id: j.job_id,
             status: 'queued',
@@ -183,9 +183,15 @@ function App() {
             type: 'table',
             jobIds: data.jobs.map(j => j.job_id)
           }]);
+        } else {
+          console.error("Backend error:", data);
+          showToast(`Server Error: ${data.detail || 'Could not queue jobs'}`, 'error');
+          setUsageCount(prev => prev - urls.length); // Refund quota
         }
       } catch (e) {
         console.error("Analyze error:", e);
+        showToast("Network Error: Could not connect to server.", "error");
+        setUsageCount(prev => prev - urls.length); // Refund quota
       }
     } else {
       // NORMAL CHAT FLOW

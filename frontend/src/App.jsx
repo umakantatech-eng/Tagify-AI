@@ -558,6 +558,38 @@ function App() {
       });
     });
 
+    const copyToClipboard = () => {
+      if (completedJobsData.length === 0) return;
+      const header = ["SL.NO", "IMAGE", ...visibleCols].join('\t');
+      const rows = completedJobsData.map((j, idx) => {
+        const r = [idx + 1, j.previewUrl];
+        visibleCols.forEach(c => r.push(j.result[c] || ''));
+        return r.join('\t');
+      }).join('\n');
+      navigator.clipboard.writeText(`${header}\n${rows}`);
+      showToast('Copied to clipboard!');
+    };
+
+    const exportCSV = () => {
+      if (completedJobsData.length === 0) return;
+      const header = ["SL.NO", "IMAGE", ...visibleCols].join(',');
+      const rows = completedJobsData.map((j, idx) => {
+        const r = [idx + 1, j.previewUrl];
+        visibleCols.forEach(c => {
+          const val = (j.result[c] || '').toString().replace(/"/g, '""');
+          r.push(`"${val}"`);
+        });
+        return r.join(',');
+      }).join('\n');
+      const blob = new Blob([`${header}\n${rows}`], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tagify_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
     return (
       <div className="studio-table-wrapper" style={{margin: '10px 0'}}>
         <div className="studio-table-header">

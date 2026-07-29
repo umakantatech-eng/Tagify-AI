@@ -13,7 +13,7 @@ load_dotenv()
 SYSTEM_INSTRUCTION = """Expert AI for Kurtis. Analyze N images as N distinct products.
 Rules per product:
 1. Color: MAIN fabric base color only. Ignore border/print.
-2. FOLDED RULE: ONLY if the kurti is physically folded up so the full body/length is hidden -> Not Available. If it is fully spread out flat on a floor/bed, you MUST extract the actual Fit/Shape, Length, and Sleeve Length normally.
+2. FOLDED RULE: If the kurti is physically folded up (like a rectangular packet) so the full body/flare is hidden, Fit/Shape and Length MUST be 'Not Available'. Do not guess A-line just because the folded edges are straight. If it is fully spread out flat on a floor/bed, extract normally.
 3. Pattern & PnP Rules:
    - "Solid" Pattern: If the main body fabric is plain/solid, Pattern="Solid" and PnP="Solid". Mirror work, embroidery, or prints ONLY at the neck/border do NOT change the pattern.
    - Strict Matching: Solid->Solid, Striped->Stripe, Checked->Checked, Embellished->Embellished.
@@ -34,6 +34,9 @@ Neck:
 - Sweetheart: Curved neckline that looks like the top half of a heart (two curves meeting at the chest).
 - Keyhole: A closed neck with a distinct hole (circle or teardrop) cut out below the collar.
 - Boat: Very wide neckline passing horizontally near the collarbones, sitting wide on the shoulders.
+- Square: A neckline with straight horizontal and vertical lines forming sharp 90-degree corners. DO NOT call this round.
+- Tie - Up: Any neckline that features strings, cords, or ribbons used to tie it together at the front. If there are strings, it is Tie - Up.
+- Stylised: A complex, unique, or designer neckline that doesn't fit standard simple shapes (e.g., overlapping flaps, intricate cutouts).
 Sleeve Styling:
 - Bell: Normal at the top, but flaring out wide SPECIFICALLY at the bottom/cuff like a bell shape. DO NOT confuse with Flared.
 - Flared: Loosely widening continuously throughout the ENTIRE sleeve length.

@@ -77,7 +77,7 @@ function App() {
 
   // Limits
   const validApiKeys = apiKeys.filter(k => typeof k === 'string' ? k.trim().length > 0 : k?.key?.trim().length > 0);
-  const maxLimit = validApiKeys.length === 0 ? 25 : (validApiKeys.length >= 4 ? 3999 : 999);
+  const maxLimit = validApiKeys.length === 0 ? 25 : (validApiKeys.length * 1000 - 1);
   const isLimitExceeded = usageCount >= maxLimit;
 
   // Polling for jobs
@@ -623,23 +623,53 @@ function App() {
         </div>
         
         <div className="table-scroll" style={{maxHeight: '400px'}}>
-          <table className="tag-table">
-            <thead>
-              <tr>
-                <th>SL.NO</th>
-                <th>IMAGE</th>
-                {visibleCols.map(c => <th key={c}>{c.toUpperCase()}</th>)}
-                <th>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableJobs.map((job, idx) => (
+        <div className="table-wrapper">
+        <table className="tag-table">
+          <thead>
+            <tr>
+              <th>PRODUCT ID</th>
+              <th>IMAGE</th>
+              <th>COLOR</th>
+              <th>FIT/SHAPE</th>
+              <th>NECK</th>
+              <th>OCCASION</th>
+              <th>ORNAMENTATION</th>
+              <th>PATTERN</th>
+              <th>PNP</th>
+              <th>SLEEVE STYLING</th>
+              <th>LENGTH</th>
+              <th>SLEEVE LENGTH</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableJobs.map((job, idx) => {
+              const res = job.result || {};
+              const getProductId = (url) => {
+                try {
+                  const match = url.match(/\/products\/(\d+)\//);
+                  return match ? match[1] : (idx + 1);
+                } catch (e) {
+                  return idx + 1;
+                }
+              };
+              const productId = getProductId(job.previewUrl);
+              return (
                 <tr key={job.id}>
-                  <td>{idx + 1}</td>
-                  <td><img src={job.previewUrl} className="td-image" alt="item" onClick={() => setSelectedImage(job.previewUrl)} style={{cursor: 'pointer'}} title="Click to view full image"/></td>
-                  {visibleCols.map(col => (
-                     <td key={col} style={{color: 'var(--text-secondary)'}}>{job.result?.[col] || '-'}</td>
-                  ))}
+                  <td className="sl-no">{productId}</td>
+                  <td className="img-cell">
+                    <img src={job.previewUrl} className="td-image" alt="item" onClick={() => setSelectedImage(job.previewUrl)} style={{cursor: 'pointer'}} title="Click to view full image"/>
+                  </td>
+                  <td className={res.Color ? 'success' : ''}>{res.Color || '-'}</td>
+                  <td className={res['Fit/Shape'] ? 'success' : ''}>{res['Fit/Shape'] || '-'}</td>
+                  <td className={res.Neck ? 'success' : ''}>{res.Neck || '-'}</td>
+                  <td className={res.Occasion ? 'success' : ''}>{res.Occasion || '-'}</td>
+                  <td className={res.Ornamentation ? 'success' : ''}>{res.Ornamentation || '-'}</td>
+                  <td className={res.Pattern ? 'success' : ''}>{res.Pattern || '-'}</td>
+                  <td className={res.PnP ? 'success' : ''}>{res.PnP || '-'}</td>
+                  <td className={res['Sleeve Styling'] ? 'success' : ''}>{res['Sleeve Styling'] || '-'}</td>
+                  <td className={res.Length ? 'success' : ''}>{res.Length || '-'}</td>
+                  <td className={res['Sleeve Length'] ? 'success' : ''}>{res['Sleeve Length'] || '-'}</td>
                   <td>
                     {job.status === 'queued' && <span style={{color: '#eab308', fontSize: 12}}>Queued</span>}
                     {job.status === 'processing' && <span style={{color: '#3b82f6', fontSize: 12}}>Processing...</span>}
@@ -647,9 +677,11 @@ function App() {
                     {job.status === 'failed' && <span style={{color: 'var(--error-color)', fontSize: 12}}>Failed</span>}
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     );
@@ -680,7 +712,7 @@ function App() {
                       <div style={{marginBottom: 12, color: 'var(--text-primary)'}}>
                         I've queued <b>{msg.jobIds.length}</b> images for tagging. 
                         <span style={{color: 'var(--brand-color)', marginLeft: 8, fontSize: 13, fontWeight: 500}}>
-                          (Estimated time: ~{msg.jobIds.length * 2} seconds)
+                          (Estimated time: ~{Math.ceil((msg.jobIds.length / Math.max(1, apiKeys.filter(k => k.trim() !== '').length)) / 4) * 4.5} seconds)
                         </span>
                         <br/><span style={{fontSize: 13, color: 'var(--text-secondary)'}}>Here are the live results:</span>
                       </div>
@@ -714,18 +746,31 @@ function App() {
             <Plus size={20} />
           </button>
 
-          <input 
+          <textarea 
             className="chat-input" 
             placeholder="Ask Tagify AI..."
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => { if(e.key === 'Enter' && inputValue.trim()) handleSubmit(); }}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.includes('http')) {
+                setInputValue(val.replace(/[ ,]+/g, '\n'));
+              } else {
+                setInputValue(val);
+              }
+            }}
+            onKeyDown={(e) => { 
+              if(e.key === 'Enter' && !e.shiftKey && inputValue.trim()) {
+                e.preventDefault();
+                handleSubmit();
+              } 
+            }}
             disabled={isLimitExceeded}
+            style={{resize: 'none', height: '60px', paddingTop: '18px'}}
           />
 
           <div className="input-icons">
             {inputValue.trim() ? (
-              <button className="send-btn-circle" onClick={handleSubmit} disabled={isLimitExceeded}>
+              <button className="send-btn-circle" onClick={handleSubmit} onPointerDown={(e) => { e.preventDefault(); handleSubmit(); }} disabled={isLimitExceeded}>
                 <Send size={16} />
               </button>
             ) : (

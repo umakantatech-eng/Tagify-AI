@@ -30,7 +30,7 @@ class BulkStatusRequest(BaseModel):
     job_ids: List[str]
 
 async def process_user_batch(jobs_data: List[dict], api_key: Optional[str]):
-    chunk_size = 5
+    chunk_size = 2
     for i in range(0, len(jobs_data), chunk_size):
         chunk = jobs_data[i:i+chunk_size]
         
@@ -43,7 +43,9 @@ async def process_user_batch(jobs_data: List[dict], api_key: Optional[str]):
             for job in active_chunk:
                 jobs_store[job["job_id"]]["status"] = "processing"
             
+            print(f"Starting analysis for chunk of {len(active_chunk)} images...")
             ai_results = await analyze_product_images(active_chunk, api_key)
+            print(f"Analysis completed for chunk. Received {len(ai_results)} results.")
             
             for idx, ai_result in enumerate(ai_results):
                 job_id = active_chunk[idx]["job_id"]
@@ -145,7 +147,8 @@ async def analyze_bulk(payload: UrlAnalyzeRequest, background_tasks: BackgroundT
         for i in range(num_keys):
             segment = jobs_data[i * segment_size : (i + 1) * segment_size]
             if segment:
-                background_tasks.add_task(process_user_batch, segment, keys_list[i])
+                # Create true parallel tasks instead of sequential BackgroundTasks
+                asyncio.create_task(process_user_batch(segment, keys_list[i]))
                 
         return {"jobs": results, "message": f"{len(urls)} jobs added to queue distributed across {len(keys_list)} keys"}
     except Exception as e:

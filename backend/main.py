@@ -21,6 +21,14 @@ app.add_middleware(
 )
 
 jobs_store = {}
+
+class UrlAnalyzeRequest(BaseModel):
+    urls: List[str]
+    custom_prompt: Optional[str] = None
+
+class BulkStatusRequest(BaseModel):
+    job_ids: List[str]
+
 async def process_user_batch(jobs_data: List[dict], api_key: Optional[str]):
     chunk_size = 5
     for i in range(0, len(jobs_data), chunk_size):
@@ -76,9 +84,9 @@ async def analyze_product(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/analyze-url")
-async def analyze_urls(request: UrlAnalyzeRequest, background_tasks: BackgroundTasks):
+async def analyze_urls(payload: UrlAnalyzeRequest, background_tasks: BackgroundTasks):
     try:
-        urls = request.urls
+        urls = payload.urls
         if not urls:
             raise HTTPException(status_code=400, detail="No URLs provided")
             
@@ -94,16 +102,16 @@ async def analyze_urls(request: UrlAnalyzeRequest, background_tasks: BackgroundT
             "filename": filename
         }
         
-        jobs_data = [{"job_id": job_id, "data": url1, "is_url": True, "custom_prompt": request.custom_prompt}]
+        jobs_data = [{"job_id": job_id, "data": url1, "is_url": True, "custom_prompt": payload.custom_prompt}]
         background_tasks.add_task(process_user_batch, jobs_data, None)
         return {"job_id": job_id, "status": "queued", "message": "Job added to queue"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/analyze-bulk")
-async def analyze_bulk(request: UrlAnalyzeRequest, background_tasks: BackgroundTasks, x_user_api_key: Optional[str] = Header(None)):
+async def analyze_bulk(payload: UrlAnalyzeRequest, background_tasks: BackgroundTasks, x_user_api_key: Optional[str] = Header(None)):
     try:
-        urls = request.urls
+        urls = payload.urls
         if not urls:
             raise HTTPException(status_code=400, detail="No URLs provided")
             
@@ -119,7 +127,7 @@ async def analyze_bulk(request: UrlAnalyzeRequest, background_tasks: BackgroundT
                 "result": None,
                 "filename": filename
             }
-            jobs_data.append({"job_id": job_id, "data": url, "is_url": True, "custom_prompt": request.custom_prompt})
+            jobs_data.append({"job_id": job_id, "data": url, "is_url": True, "custom_prompt": payload.custom_prompt})
             results.append({"job_id": job_id, "url": url, "filename": filename})
             
         background_tasks.add_task(process_user_batch, jobs_data, x_user_api_key)
@@ -128,10 +136,10 @@ async def analyze_bulk(request: UrlAnalyzeRequest, background_tasks: BackgroundT
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/cancel-bulk")
-async def cancel_bulk(request: BulkStatusRequest):
+async def cancel_bulk(payload: BulkStatusRequest):
     try:
         cancelled_count = 0
-        for job_id in request.job_ids:
+        for job_id in payload.job_ids:
             if job_id in jobs_store and jobs_store[job_id]["status"] in ["queued", "processing"]:
                 jobs_store[job_id]["status"] = "cancelled"
                 cancelled_count += 1
@@ -146,17 +154,17 @@ async def get_status(job_id: str):
     return jobs_store[job_id]
 
 @app.post("/api/jobs-status")
-async def get_jobs_status(request: BulkStatusRequest):
-    return {job_id: jobs_store.get(job_id) for job_id in request.job_ids if job_id in jobs_store}
+async def get_jobs_status(payload: BulkStatusRequest):
+    return {job_id: jobs_store.get(job_id) for job_id in payload.job_ids if job_id in jobs_store}
 
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, Any]]] = None
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest, x_user_api_key: Optional[str] = Header(None)):
+async def chat_endpoint(payload: ChatRequest, x_user_api_key: Optional[str] = Header(None)):
     try:
-        result = await handle_chat_message(request.message, request.history, x_user_api_key)
+        result = await handle_chat_message(payload.message, payload.history, x_user_api_key)
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
         return result

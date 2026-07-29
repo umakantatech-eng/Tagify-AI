@@ -2,7 +2,7 @@ import re
 
 # Taxonomy Definition
 TAXONOMY = {
-    "Color": ["Aqua Blue", "Beige", "Black", "Blue", "Brown", "Cream", "Green", "Grey", "Maroon", "Mint Green", "Mustard", "Navy Blue", "Olive", "Orange", "Peach", "Pink", "Purple", "Red", "Teal", "White", "Yellow"],
+    "Color": ["Aqua Blue", "Beige", "Black", "Blue", "Brown", "Cream", "Green", "Grey", "Maroon", "Mint Green", "Multicolour", "Mustard", "Navy Blue", "Olive", "Orange", "Peach", "Pink", "Purple", "Red", "Teal", "White", "Yellow"],
     "Fit/Shape": ["A-line", "Anarkali", "Angrakha", "Assymetrical", "Flared", "Gown", "High-Slit", "Jacket Kurta", "Kaftan", "Maternity", "Short Kurti", "Shrug Kurti", "Straight", "Tiered", "Not Available"],
     "Neck": ["Boat", "Halter", "Keyhole", "Mandarin", "Notch", "Paan", "Round", "Scoop", "Shirt", "Square", "Stylised", "Surplice", "Sweetheart", "Tie - Up", "V-neck", "Not Available"],
     "Occasion": ["Daily", "Party", "Maternity"],

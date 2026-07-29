@@ -12,7 +12,7 @@ load_dotenv()
 
 SYSTEM_INSTRUCTION = """Expert AI for Kurtis. Analyze N images as N distinct products.
 Rules per product:
-1. Color: MAIN fabric base color only. Ignore border/print. CRITICAL: Distinguish carefully between 'Blue' and 'Navy Blue'. If the fabric is a very dark shade of blue, you MUST output 'Navy Blue'. Be highly accurate with colors.
+1. Color: MAIN fabric base color only. Ignore border/print. CRITICAL: Distinguish carefully between 'Blue' and 'Navy Blue'. If the fabric is a very dark shade of blue, you MUST output 'Navy Blue'. If the garment is heavily split between two or more distinct, highly contrasting colors (e.g., side panels vs center panel), output 'Multicolour'.
 2. FOLDED RULE: If the kurti is physically folded up (like a rectangular packet) so the full body/flare is hidden, Fit/Shape and Length MUST be 'Not Available'. Do not guess A-line just because the folded edges are straight. If it is fully spread out flat on a floor/bed, extract normally.
 3. Pattern & PnP Rules:
    - "Solid" Pattern: If the main body fabric is plain/solid, Pattern="Solid" and PnP="Solid". Mirror work, embroidery, or prints ONLY at the neck/border do NOT change the pattern.
@@ -38,8 +38,8 @@ Neck:
 - Tie - Up: Any neckline that features strings, cords, or ribbons used to tie it together at the front. If there are strings, it is Tie - Up.
 - Stylised: A complex, unique, or designer neckline that doesn't fit standard simple shapes (e.g., overlapping flaps, intricate cutouts).
 Sleeve Styling:
-- Bell: Normal at the top, but flaring out wide SPECIFICALLY at the bottom/cuff like a bell shape. DO NOT confuse with Flared.
-- Flared: Loosely widening continuously throughout the ENTIRE sleeve length.
+- Bell: Flaring out wide at the bottom/cuff like a bell shape. If the sleeve noticeably widens at the end, choose Bell (prefer Bell over Flared for wide cuffs).
+- Flared: Only use if the ENTIRE sleeve is extremely loose from the shoulder down. If it's normal at the shoulder but wide at the wrist, it is Bell.
 Sleeve Length:
 - Long Sleeves: Reaching all the way down to the wrist bone.
 - Three-Quarter Sleeves: Ending below the elbow but well above the wrist, exposing the lower forearm. DO NOT confuse Long and Three-Quarter.
@@ -48,7 +48,7 @@ CRITICAL ACCURACY STEP: You MUST perform a visual analysis before classifying.
 
 Output ONLY raw JSON ARRAY of N objects.
 Fields & STRICT allowed values:
-Color: Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow
+Color: Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolour, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow
 Fit/Shape: A-line, Anarkali, Angrakha, Assymetrical, Flared, Gown, High-Slit, Jacket Kurta, Kaftan, Maternity, Short Kurti, Shrug Kurti, Straight, Tiered
 Neck: Boat, Halter, Keyhole, Mandarin, Notch, Paan, Round, Scoop, Shirt, Square, Stylised, Surplice, Sweetheart, Tie - Up, V-neck
 Occasion: Daily, Party, Maternity

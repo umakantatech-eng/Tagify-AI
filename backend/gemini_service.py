@@ -12,7 +12,7 @@ load_dotenv()
 
 SYSTEM_INSTRUCTION = """Expert AI for Kurtis. Analyze N images as N distinct products.
 Rules per product:
-1. Color: MAIN fabric base color only. Ignore border/print.
+1. Color: MAIN fabric base color only. Ignore border/print. CRITICAL: Distinguish carefully between 'Blue' and 'Navy Blue'. If the fabric is a very dark shade of blue, you MUST output 'Navy Blue'. Be highly accurate with colors.
 2. FOLDED RULE: If the kurti is physically folded up (like a rectangular packet) so the full body/flare is hidden, Fit/Shape and Length MUST be 'Not Available'. Do not guess A-line just because the folded edges are straight. If it is fully spread out flat on a floor/bed, extract normally.
 3. Pattern & PnP Rules:
    - "Solid" Pattern: If the main body fabric is plain/solid, Pattern="Solid" and PnP="Solid". Mirror work, embroidery, or prints ONLY at the neck/border do NOT change the pattern.

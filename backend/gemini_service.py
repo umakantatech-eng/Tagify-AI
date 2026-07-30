@@ -302,6 +302,7 @@ async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str 
                 contents,
                 generation_config=genai.GenerationConfig(
                     response_mime_type="application/json",
+                    temperature=0.0,
                 )
             )
         

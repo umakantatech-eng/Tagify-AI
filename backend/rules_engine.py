@@ -59,23 +59,14 @@ def validate_and_correct(ai_result):
     # Hard Rules Enforcement (User specific constraints)
     # ---------------------------------------------------------
     
-    # (Rule 1 removed - No longer forcing other fields to Not Available if Length is Not Available)
-        
+    # Rule 1: Folded Kurti
+    # Handled by prompt, but if Length is Not Available due to fold, maybe force others
+    
     # Rule 2: If Length is Above Knee, Fit/Shape MUST be Short Kurti
     if validated_result.get("Length") == "Above Knee":
         validated_result["Fit/Shape"] = "Short Kurti"
         
-    # Rule 3: Sleeveless Enforcement
-    if validated_result.get("Sleeve Length") == "Sleeveless":
-        validated_result["Sleeve Styling"] = "Sleeveless"
-    elif validated_result.get("Sleeve Styling") == "Sleeveless":
-        validated_result["Sleeve Length"] = "Sleeveless"
-        
-    # Rule 4: Tie-Up Neck Ornamentation
-    if validated_result.get("Neck") == "Tie - Up":
-        validated_result["Ornamentation"] = "Tie-Ups"
-        
-    # Rule 5: Pattern -> PnP matching for Solid, Checked, Striped, Embellished
+    # Rule 3: Pattern -> PnP matching for Solid, Checked, Striped, Embellished
     pat = validated_result.get("Pattern", "")
     if pat == "Solid":
         validated_result["PnP"] = "Solid"
@@ -109,14 +100,4 @@ def validate_and_correct(ai_result):
         if validated_result.get("Occasion") not in ["Daily", "Maternity"]:
             validated_result["Occasion"] = "Daily"
             
-
-    # Rule 6: Map Straight to A-line as requested by user
-    if validated_result.get("Fit/Shape") == "Straight":
-        validated_result["Fit/Shape"] = "A-line"
-
-
-    # Rule 8: Map Animal to Quirky in PnP
-    if validated_result.get("PnP") == "Animal":
-        validated_result["PnP"] = "Quirky"
-
     return validated_result

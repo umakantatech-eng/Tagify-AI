@@ -22,6 +22,13 @@ function App() {
     catch { return []; }
   });
   const [usageCount, setUsageCount] = useState(() => {
+    const today = new Date().toLocaleDateString();
+    const lastReset = localStorage.getItem('lastResetDate');
+    if (lastReset !== today) {
+      localStorage.setItem('lastResetDate', today);
+      localStorage.setItem('usageCount', '0');
+      return 0;
+    }
     return parseInt(localStorage.getItem('usageCount') || '0', 10);
   });
   

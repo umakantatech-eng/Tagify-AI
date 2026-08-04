@@ -1,12 +1,15 @@
 import os
 import json
 import google.generativeai as genai
+import asyncio
 from typing import List, Dict, Any
 import io
 import requests
 from PIL import Image
 from dotenv import load_dotenv
 import asyncio
+
+api_lock = asyncio.Lock()
 
 load_dotenv()
 
@@ -112,10 +115,6 @@ async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str 
     unique_custom = list(set(custom_prompts))
     custom_prompt_text = unique_custom[0] if unique_custom else None
     
-    model = get_gemini_model(user_api_key, custom_prompt_text)
-    if not model:
-        return [{"error": "API Key not configured properly in .env"}] * len(tasks)
-
     contents = []
     
     for i, task in enumerate(tasks):
@@ -141,14 +140,19 @@ async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str 
         
     contents.append(f"Analyze the {len(tasks)} provided products according to the system instructions and return a JSON ARRAY containing {len(tasks)} objects.")
     try:
-        def fetch_from_gemini():
-            return model.generate_content(
-                contents,
-                generation_config=genai.GenerationConfig(response_mime_type="application/json", temperature=0.0)
-            )
-        
-        # Run synchronous generate_content in a separate thread so it doesn't block the FastAPI event loop
-        response = await asyncio.to_thread(fetch_from_gemini)
+        async with api_lock:
+            model = get_gemini_model(user_api_key, custom_prompt_text)
+            if not model:
+                return [{"error": "API Key not configured properly in .env"}] * len(tasks)
+                
+            def fetch_from_gemini():
+                return model.generate_content(
+                    contents,
+                    generation_config=genai.GenerationConfig(response_mime_type="application/json", temperature=0.0)
+                )
+            
+            # Run synchronous generate_content in a separate thread so it doesn't block the FastAPI event loop
+            response = await asyncio.to_thread(fetch_from_gemini)
         
         try:
             result_json = json.loads(response.text)

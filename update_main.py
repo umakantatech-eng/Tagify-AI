@@ -1,35 +1,10 @@
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks, HTTPException, Header, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import asyncio
-import uuid
 import re
 
-from rules_engine import validate_and_correct
-from gemini_service import analyze_product_images
-from chat_service import handle_chat_message
+with open('backend/main.py', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-jobs_store = {}
-
-class UrlAnalyzeRequest(BaseModel):
-    urls: List[str]
-    custom_prompt: Optional[str] = None
-
-class BulkStatusRequest(BaseModel):
-    job_ids: List[str]
-
-
+# Add queue and worker logic to main.py
+worker_logic = """
 # Global stats to track active bulk jobs
 bulk_stats = {
     "total": 0,
@@ -183,51 +158,9 @@ async def get_jobs_status(payload: BulkStatusRequest):
         "eta_seconds": eta_seconds,
         "pending_count": pending_count
     }
-@app.post("/api/cancel-bulk")
-async def cancel_bulk(payload: BulkStatusRequest):
-    try:
-        cancelled_count = 0
-        for job_id in payload.job_ids:
-            if job_id in jobs_store and jobs_store[job_id]["status"] in ["queued", "processing"]:
-                jobs_store[job_id]["status"] = "cancelled"
-                cancelled_count += 1
-        return {"message": f"Cancelled {cancelled_count} jobs"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+"""
 
-@app.get("/api/status/{job_id}")
-async def get_status(job_id: str):
-    if job_id not in jobs_store:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return jobs_store[job_id]
+content = re.sub(r'async def process_user_batch.*?(?=@app\.post\("/api/cancel-bulk"\))', worker_logic, content, flags=re.DOTALL)
 
-@app.post("/api/jobs-status")
-async def get_jobs_status(payload: BulkStatusRequest):
-    return {job_id: jobs_store.get(job_id) for job_id in payload.job_ids if job_id in jobs_store}
-
-class ChatRequest(BaseModel):
-    message: str
-    history: Optional[List[Dict[str, Any]]] = None
-
-@app.post("/api/chat")
-async def chat_endpoint(payload: ChatRequest, x_user_api_key: Optional[str] = Header(None)):
-    try:
-        keys_list = [k.strip() for k in x_user_api_key.split(",") if k.strip()] if x_user_api_key else []
-        active_key = keys_list[0] if keys_list else None
-        result = await handle_chat_message(payload.message, payload.history, active_key)
-        if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/queue-status")
-async def get_queue_status():
-    return {
-        "queue_size": 0, # Deprecated
-        "total_jobs": len(jobs_store)
-    }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+with open('backend/main.py', 'w', encoding='utf-8') as f:
+    f.write(content)

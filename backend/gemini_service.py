@@ -1,15 +1,13 @@
 import os
 import json
-import google.generativeai as genai
-import asyncio
 from typing import List, Dict, Any
 import io
 import requests
+import aiohttp
+import base64
 from PIL import Image
 from dotenv import load_dotenv
 import asyncio
-
-api_lock = asyncio.Lock()
 
 load_dotenv()
 
@@ -65,57 +63,25 @@ Confidence: High/Medium/Low
 Format exactly: [{"Reasoning":"Analyze Neck (is there a V-cut?), Sleeves (wrist or forearm? bell or flared?), and Shape (straight or triangle?)","Color":"..","Fit/Shape":"..","Neck":"..","Occasion":"..","Ornamentation":"..","Pattern":"..","PnP":"..","Sleeve Styling":"..","Length":"..","Sleeve Length":"..","Confidence":".."}]
 """
 
-def get_gemini_model(user_api_key=None, custom_prompt=None):
+async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str = None):
     api_key = user_api_key or os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        print("Please configure your GEMINI_API_KEY in the .env file")
-        return None
-        
-    genai.configure(api_key=api_key)
-    
-    sys_inst = SYSTEM_INSTRUCTION
-    if custom_prompt:
-        sys_inst += f"""
-        
-CRITICAL OVERRIDE RULE: The user specifically requested: "{custom_prompt}".
-You MUST ONLY analyze and extract the specific attributes mentioned in the user's request. 
-For ALL OTHER attributes that the user did NOT ask for, you MUST set their value to exactly "-" without any analysis.
-Do not waste time extracting or outputting anything the user did not explicitly ask for! This is a strict requirement.
-"""
+        return [{"error": "API Key not configured properly in .env"}] * len(tasks)
 
-    try:
-        model = genai.GenerativeModel('gemini-3.5-flash-lite', system_instruction=sys_inst)
-        return model
-    except Exception as e:
-        print(f"Error initializing model: {e}")
-        return None
-
-def download_image(url):
-    # Spoof a real browser to prevent Meesho/CDN from detecting the bot
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.meesho.com/',
-        'Connection': 'keep-alive'
-    }
-    try:
-        response = requests.get(url, headers=headers, stream=True, timeout=15)
-        response.raise_for_status()
-        return response.content
-    except Exception as e:
-        print(f"Error downloading image from {url}: {e}")
-        return None
-
-async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str = None):
-    """
-    tasks: list of dicts like [{"job_id": "...", "data": "url_or_bytes", "is_url": True}]
-    """
     custom_prompts = [t.get("custom_prompt") for t in tasks if t.get("custom_prompt")]
     unique_custom = list(set(custom_prompts))
     custom_prompt_text = unique_custom[0] if unique_custom else None
     
-    contents = []
+    sys_inst = SYSTEM_INSTRUCTION
+    if custom_prompt_text:
+        sys_inst += f"""
+
+CRITICAL OVERRIDE RULE: The user specifically requested: "{custom_prompt_text}".
+You MUST ONLY analyze and extract the specific attributes mentioned in the user's request.
+For ALL OTHER attributes that the user did NOT ask for, you MUST set their value to exactly "-" without any analysis.
+Do not waste time extracting or outputting anything the user did not explicitly ask for! This is a strict requirement."""
+    
+    parts = []
     
     for i, task in enumerate(tasks):
         img_data = task["data"]
@@ -123,53 +89,84 @@ async def analyze_product_images(tasks: List[Dict[str, Any]], user_api_key: str 
         if task["is_url"]:
             img_bytes = download_image(img_data)
             if not img_bytes: 
-                contents.append(f"Product {i+1}: Image failed to download.")
+                parts.append({"text": f"Product {i+1}: Image failed to download."})
                 continue
         else:
             img_bytes = img_data
 
         try:
+            # We don't need to open with PIL anymore since we just base64 it, but let's compress it if needed
+            # For simplicity, we just base64 encode the raw bytes. If they are large, we might want PIL compression.
+            # We'll use PIL just to ensure it's a valid image and convert to JPEG to save bandwidth.
             img = Image.open(io.BytesIO(img_bytes))
-            contents.append(img)
-            contents.append(f"Product {i+1}")
-        except Exception as e:
-            contents.append(f"Product {i+1}: Invalid image data.")
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            # Compress to standard 1024 max size
+            img.thumbnail((1024, 1024))
+            out_io = io.BytesIO()
+            img.save(out_io, format='JPEG', quality=85)
+            b64_img = base64.b64encode(out_io.getvalue()).decode('utf-8')
             
-    if not contents:
+            parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": b64_img
+                }
+            })
+            parts.append({"text": f"Product {i+1}"})
+        except Exception as e:
+            parts.append({"text": f"Product {i+1}: Invalid image data."})
+            
+    if not parts:
         return [{"error": "No valid images provided"}] * len(tasks)
         
-    contents.append(f"Analyze the {len(tasks)} provided products according to the system instructions and return a JSON ARRAY containing {len(tasks)} objects.")
+    parts.append({"text": f"Analyze the {len(tasks)} provided products according to the system instructions and return a JSON ARRAY containing {len(tasks)} objects."})
+
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": sys_inst}]
+        },
+        "contents": [
+            {
+                "parts": parts
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.0,
+            "responseMimeType": "application/json"
+        }
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+    
     try:
-        async with api_lock:
-            model = get_gemini_model(user_api_key, custom_prompt_text)
-            if not model:
-                return [{"error": "API Key not configured properly in .env"}] * len(tasks)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers={'Content-Type': 'application/json'}) as response:
+                if response.status == 429:
+                    # Specific exception for rate limits to handle in main.py
+                    raise Exception("429 Too Many Requests")
                 
-            def fetch_from_gemini():
-                return model.generate_content(
-                    contents,
-                    generation_config=genai.GenerationConfig(response_mime_type="application/json", temperature=0.0)
-                )
-            
-            # Run synchronous generate_content in a separate thread so it doesn't block the FastAPI event loop
-            response = await asyncio.to_thread(fetch_from_gemini)
-        
-        try:
-            result_json = json.loads(response.text)
-            # Ensure it's a list
-            if not isinstance(result_json, list):
-                result_json = [result_json]
+                resp_json = await response.json()
                 
-            # Pad or truncate to match tasks length just in case AI messes up
-            while len(result_json) < len(tasks):
-                result_json.append({"error": "AI did not return data for this product"})
+                if 'error' in resp_json:
+                    raise Exception(f"Gemini API Error: {resp_json['error'].get('message', str(resp_json['error']))}")
+                    
+                text_response = resp_json['candidates'][0]['content']['parts'][0]['text']
                 
-            return result_json[:len(tasks)]
-            
-        except json.JSONDecodeError:
-            print("Failed to parse JSON:", response.text)
-            return [{"error": "Invalid JSON response from AI", "raw": response.text}] * len(tasks)
-            
+                try:
+                    result_json = json.loads(text_response)
+                    if not isinstance(result_json, list):
+                        result_json = [result_json]
+                        
+                    while len(result_json) < len(tasks):
+                        result_json.append({"error": "AI did not return data for this product"})
+                        
+                    return result_json[:len(tasks)]
+                except json.JSONDecodeError:
+                    return [{"error": "Invalid JSON response from AI", "raw": text_response}] * len(tasks)
+
     except Exception as e:
+        if "429" in str(e):
+            return [{"error": "429 Too Many Requests"}] * len(tasks)
         print(f"API Error: {e}")
         return [{"error": str(e)}] * len(tasks)

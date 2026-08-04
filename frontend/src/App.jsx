@@ -44,6 +44,7 @@ function App() {
   });
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [bulkStats, setBulkStats] = useState({ eta: 0, exhausted: 0, active: 0 });
 
   // Sync state to LocalStorage
   useEffect(() => { localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme); }, [theme]);

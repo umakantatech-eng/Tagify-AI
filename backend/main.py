@@ -183,6 +183,7 @@ async def get_jobs_status(payload: BulkStatusRequest):
         "eta_seconds": eta_seconds,
         "pending_count": pending_count
     }
+
 @app.post("/api/cancel-bulk")
 async def cancel_bulk(payload: BulkStatusRequest):
     try:
@@ -201,13 +202,11 @@ async def get_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_store[job_id]
 
-@app.post("/api/jobs-status")
-async def get_jobs_status(payload: BulkStatusRequest):
-    return {job_id: jobs_store.get(job_id) for job_id in payload.job_ids if job_id in jobs_store}
 
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, Any]]] = None
+
 
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest, x_user_api_key: Optional[str] = Header(None)):

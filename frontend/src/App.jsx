@@ -105,7 +105,26 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job_ids: activeJobs.map(j => j.id) }),
         });
-        const statusMap = await res.json();
+        const data = await res.json();
+        
+        // Update bulk stats (ETA, exhausted keys etc.)
+        if (data.eta_seconds !== undefined) {
+          setBulkStats({
+            eta: data.eta_seconds,
+            exhausted: data.exhausted_keys || 0,
+            active: data.active_workers || 0
+          });
+        }
+        
+        // Build a quick-lookup map from job_id -> status data
+        const statusMap = {};
+        if (data.statuses && Array.isArray(data.statuses)) {
+          // New format: { statuses: [{job_id, status, result}], ...}
+          data.statuses.forEach(s => { statusMap[s.job_id] = s; });
+        } else {
+          // Fallback: old format { job_id: {status, result} }
+          Object.assign(statusMap, data);
+        }
         
         setJobs(prev => prev.map(job => {
           const updated = statusMap[job.id];
@@ -125,6 +144,7 @@ function App() {
     }, 3000);
     return () => clearInterval(interval);
   }, [jobs, isProcessing]);
+
 
   const cancelJobs = async () => {
     const activeJobs = jobs.filter(j => j.status === 'queued' || j.status === 'processing');
@@ -554,42 +574,57 @@ function App() {
     );
   };
 
-  const renderTable = (jobIds) => {
-    const tableJobs = jobs.filter(j => jobIds.includes(j.id));
-    const completedCount = tableJobs.filter(j => j.status === 'completed' || j.status === 'failed').length;
-    const progressPercent = tableJobs.length === 0 ? 0 : Math.round((completedCount / tableJobs.length) * 100);
+  // ═══════════════════════════════════════════════════════
+  // CATEGORY COLUMN DEFINITIONS
+  // To add a new category, just add an entry here
+  // ═══════════════════════════════════════════════════════
+  const CATEGORY_COLS = {
+    'Kurti':  ["Color", "Fit/Shape", "Neck", "Occasion", "Ornamentation", "Pattern", "PnP", "Sleeve Styling", "Length", "Sleeve Length"],
+    'Saree':  ["Blouse Color", "blouse_pattern", "border", "border_width", "color", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type", "transparency"],
+    // Future: 'Lehenga': [...], 'Dupatta': [...], etc.
+  };
 
-    const possibleCols = [
-      "Color", "Fit/Shape", "Neck", "Occasion", "Ornamentation", 
-      "Pattern", "PnP", "Sleeve Styling", "Length", 
-      "Sleeve Length"
-    ];
-    const completedJobsData = tableJobs.filter(j => j.status === 'completed' && j.result);
+
+
+  const CATEGORY_COLORS = {
+    'Kurti': '#7c3aed',
+    'Saree': '#db2777',
+    'default': '#2563eb'
+  };
+
+  const renderSingleCategoryTable = (categoryLabel, categoryJobs, allTotalCount, showCancel) => {
+    const completedJobs = categoryJobs.filter(j => j.status === 'completed' && j.result);
+    const completedCount = categoryJobs.filter(j => j.status === 'completed' || j.status === 'failed').length;
+    const progressPercent = categoryJobs.length === 0 ? 0 : Math.round((completedCount / categoryJobs.length) * 100);
     
-    const visibleCols = possibleCols.filter(col => {
-      if (completedJobsData.length === 0) return true;
-      return completedJobsData.some(j => {
+    const catColor = CATEGORY_COLORS[categoryLabel] || CATEGORY_COLORS['default'];
+    const allCols = CATEGORY_COLS[categoryLabel] || Object.keys(completedJobs[0]?.result || {}).filter(k => !k.startsWith('_') && k !== 'Reasoning' && k !== 'Confidence');
+    
+    // Only show columns with at least one non-empty value
+    const visibleCols = allCols.filter(col => {
+      if (completedJobs.length === 0) return true;
+      return completedJobs.some(j => {
         const val = j.result[col];
         return val && val !== '-' && val !== 'Not Available' && val !== 'Not Applicable';
       });
     });
 
     const copyToClipboard = () => {
-      if (completedJobsData.length === 0) return;
+      if (completedJobs.length === 0) return;
       const header = ["SL.NO", "IMAGE", ...visibleCols].join('\t');
-      const rows = completedJobsData.map((j, idx) => {
+      const rows = completedJobs.map((j, idx) => {
         const r = [idx + 1, j.previewUrl];
         visibleCols.forEach(c => r.push(j.result[c] || ''));
         return r.join('\t');
       }).join('\n');
       navigator.clipboard.writeText(`${header}\n${rows}`);
-      showToast('Copied to clipboard!');
+      showToast(`${categoryLabel} data copied to clipboard!`);
     };
 
     const exportCSV = () => {
-      if (completedJobsData.length === 0) return;
+      if (completedJobs.length === 0) return;
       const header = ["SL.NO", "IMAGE", ...visibleCols].join(',');
-      const rows = completedJobsData.map((j, idx) => {
+      const rows = completedJobs.map((j, idx) => {
         const r = [idx + 1, j.previewUrl];
         visibleCols.forEach(c => {
           const val = (j.result[c] || '').toString().replace(/"/g, '""');
@@ -601,33 +636,41 @@ function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `tagify_export_${Date.now()}.csv`;
+      a.download = `tagify_${categoryLabel.toLowerCase()}_${Date.now()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     };
 
     return (
-      <div className="studio-table-wrapper" style={{margin: '10px 0'}}>
+      <div className="studio-table-wrapper" style={{margin: '10px 0', borderTop: `3px solid ${catColor}`}} key={categoryLabel}>
         <div className="studio-table-header">
-          <div style={{fontWeight: 600}}>Processed Images</div>
+          <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+            <span style={{
+              background: catColor, color: '#fff', borderRadius: 6,
+              padding: '2px 10px', fontSize: 12, fontWeight: 700, letterSpacing: 1
+            }}>{categoryLabel.toUpperCase()}</span>
+            <span style={{fontWeight: 600}}>
+              {categoryLabel} — {categoryJobs.length} images
+            </span>
+          </div>
           <div className="progress-bar-container">
             <div className="progress-text">
-              <span>{completedCount} / {tableJobs.length} PROCESSED</span>
+              <span>{completedCount} / {categoryJobs.length} PROCESSED</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="progress-track">
-              <div className="progress-fill" style={{width: `${progressPercent}%`}}></div>
+              <div className="progress-fill" style={{width: `${progressPercent}%`, background: catColor}}></div>
             </div>
           </div>
-            <div className="table-actions">
-              {isProcessing && (
-                <button className="btn-solid" onClick={cancelJobs} style={{ backgroundColor: '#451a1a', color: '#f87171', border: '1px solid #7f1d1d' }}>
-                  <X size={16}/> Cancel
-                </button>
-              )}
-              <button className="btn-outline brand" onClick={copyToClipboard}><Copy size={16}/> Copy for Sheets</button>
-              <button className="btn-solid" onClick={exportCSV}><Download size={16}/> Export CSV</button>
-            </div>
+          <div className="table-actions">
+            {showCancel && isProcessing && (
+              <button className="btn-solid" onClick={cancelJobs} style={{ backgroundColor: '#451a1a', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                <X size={16}/> Cancel
+              </button>
+            )}
+            <button className="btn-outline brand" onClick={copyToClipboard}><Copy size={16}/> Copy for Sheets</button>
+            <button className="btn-solid" onClick={exportCSV}><Download size={16}/> Export CSV</button>
+          </div>
         </div>
         
         <div className="table-scroll" style={{maxHeight: '400px'}}>
@@ -637,47 +680,35 @@ function App() {
             <tr>
               <th>PRODUCT ID</th>
               <th>IMAGE</th>
-              <th>COLOR</th>
-              <th>FIT/SHAPE</th>
-              <th>NECK</th>
-              <th>OCCASION</th>
-              <th>ORNAMENTATION</th>
-              <th>PATTERN</th>
-              <th>PNP</th>
-              <th>SLEEVE STYLING</th>
-              <th>LENGTH</th>
-              <th>SLEEVE LENGTH</th>
+              {visibleCols.map(col => <th key={col}>{col.replace(/_/g, ' ').toUpperCase()}</th>)}
               <th>STATUS</th>
             </tr>
           </thead>
           <tbody>
-            {tableJobs.map((job, idx) => {
+            {categoryJobs.map((job, idx) => {
               const res = job.result || {};
               const getProductId = (url) => {
                 try {
                   const match = url.match(/\/products\/(\d+)\//);
                   return match ? match[1] : (idx + 1);
-                } catch (e) {
-                  return idx + 1;
-                }
+                } catch { return idx + 1; }
               };
-              const productId = getProductId(job.previewUrl);
               return (
                 <tr key={job.id}>
-                  <td className="sl-no">{productId}</td>
+                  <td className="sl-no">{getProductId(job.previewUrl)}</td>
                   <td className="img-cell">
-                    <img src={job.previewUrl} className="td-image" alt="item" onClick={() => setSelectedImage(job.previewUrl)} style={{cursor: 'pointer'}} title="Click to view full image"/>
+                    <img src={job.previewUrl} className="td-image" alt="item"
+                      onClick={() => setSelectedImage(job.previewUrl)}
+                      style={{cursor: 'pointer'}} title="Click to view full image"/>
                   </td>
-                  <td className={res.Color ? 'success' : ''}>{res.Color || '-'}</td>
-                  <td className={res['Fit/Shape'] ? 'success' : ''}>{res['Fit/Shape'] || '-'}</td>
-                  <td className={res.Neck ? 'success' : ''}>{res.Neck || '-'}</td>
-                  <td className={res.Occasion ? 'success' : ''}>{res.Occasion || '-'}</td>
-                  <td className={res.Ornamentation ? 'success' : ''}>{res.Ornamentation || '-'}</td>
-                  <td className={res.Pattern ? 'success' : ''}>{res.Pattern || '-'}</td>
-                  <td className={res.PnP ? 'success' : ''}>{res.PnP || '-'}</td>
-                  <td className={res['Sleeve Styling'] ? 'success' : ''}>{res['Sleeve Styling'] || '-'}</td>
-                  <td className={res.Length ? 'success' : ''}>{res.Length || '-'}</td>
-                  <td className={res['Sleeve Length'] ? 'success' : ''}>{res['Sleeve Length'] || '-'}</td>
+                  {visibleCols.map(col => (
+                    <td key={col} className={
+                      res[col] && res[col] !== '-' && res[col] !== 'Not Available' && res[col] !== 'Not Applicable'
+                        ? 'success' : ''
+                    }>
+                      {res[col] || '-'}
+                    </td>
+                  ))}
                   <td>
                     {job.status === 'queued' && <span style={{color: '#eab308', fontSize: 12}}>Queued</span>}
                     {job.status === 'processing' && <span style={{color: '#3b82f6', fontSize: 12}}>Processing...</span>}
@@ -687,13 +718,116 @@ function App() {
                 </tr>
               );
             })}
-            </tbody>
-          </table>
+          </tbody>
+        </table>
         </div>
         </div>
       </div>
     );
   };
+
+  // Main render function — groups by category and renders separate tables
+  const renderTable = (jobIds) => {
+    const tableJobs = jobs.filter(j => jobIds.includes(j.id));
+    const totalCount = tableJobs.length;
+    const completedCount = tableJobs.filter(j => j.status === 'completed' || j.status === 'failed').length;
+
+    // Group jobs by detected category
+    const categoryGroups = {};
+    const pendingJobs = []; // Jobs still processing (no category yet)
+
+    tableJobs.forEach(job => {
+      const cat = job.result?._category;
+      if (cat) {
+        if (!categoryGroups[cat]) categoryGroups[cat] = [];
+        categoryGroups[cat].push(job);
+      } else {
+        // Still processing or no category — add to a "Processing" bucket
+        pendingJobs.push(job);
+      }
+    });
+
+    const categoryKeys = Object.keys(categoryGroups);
+
+    return (
+      <div style={{width: '100%'}}>
+        {/* Overall progress if multiple categories or jobs still pending */}
+        {(categoryKeys.length > 1 || pendingJobs.length > 0) && (
+          <div style={{
+            padding: '10px 16px', marginBottom: 8,
+            background: 'var(--card-bg)', borderRadius: 8,
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap'
+          }}>
+            <span style={{fontWeight: 600, fontSize: 13}}>Total: {completedCount} / {totalCount} processed</span>
+            {categoryKeys.map(cat => (
+              <span key={cat} style={{
+                fontSize: 12, padding: '2px 8px', borderRadius: 4,
+                background: CATEGORY_COLORS[cat] || CATEGORY_COLORS['default'],
+                color: '#fff', fontWeight: 600
+              }}>
+                {cat}: {categoryGroups[cat].length}
+              </span>
+            ))}
+            {pendingJobs.length > 0 && (
+              <span style={{fontSize: 12, color: '#eab308'}}>
+                ⏳ {pendingJobs.length} pending detection...
+              </span>
+            )}
+            {isProcessing && (
+              <button className="btn-solid" onClick={cancelJobs} style={{ backgroundColor: '#451a1a', color: '#f87171', border: '1px solid #7f1d1d', marginLeft: 'auto' }}>
+                <X size={16}/> Cancel All
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Render one table per detected category */}
+        {categoryKeys.map((cat, i) =>
+          renderSingleCategoryTable(cat, categoryGroups[cat], totalCount, i === 0)
+        )}
+
+        {/* Show pending jobs (still processing, no category yet) in a minimal table */}
+        {pendingJobs.length > 0 && categoryKeys.length === 0 && (
+          <div className="studio-table-wrapper" style={{margin: '10px 0'}}>
+            <div className="studio-table-header">
+              <div style={{fontWeight: 600}}>Processing... ({pendingJobs.length} images)</div>
+              <div className="table-actions">
+                {isProcessing && (
+                  <button className="btn-solid" onClick={cancelJobs} style={{ backgroundColor: '#451a1a', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                    <X size={16}/> Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="table-scroll" style={{maxHeight: '300px'}}>
+              <div className="table-wrapper">
+              <table className="tag-table">
+                <thead>
+                  <tr><th>PRODUCT ID</th><th>IMAGE</th><th>STATUS</th></tr>
+                </thead>
+                <tbody>
+                  {pendingJobs.map((job, idx) => (
+                    <tr key={job.id}>
+                      <td className="sl-no">{(() => { try { const m = job.previewUrl.match(/\/products\/(\d+)\//); return m ? m[1] : idx+1; } catch { return idx+1; } })()}</td>
+                      <td className="img-cell">
+                        <img src={job.previewUrl} className="td-image" alt="item" onClick={() => setSelectedImage(job.previewUrl)} style={{cursor: 'pointer'}}/>
+                      </td>
+                      <td>
+                        {job.status === 'queued' && <span style={{color: '#eab308', fontSize: 12}}>Queued</span>}
+                        {job.status === 'processing' && <span style={{color: '#3b82f6', fontSize: 12}}>Processing...</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
 
   const renderTaggingStudio = () => {
     return (
@@ -725,6 +859,7 @@ function App() {
                         <br/><span style={{fontSize: 13, color: 'var(--text-secondary)'}}>Here are the live results:</span>
                       </div>
                       {renderTable(msg.jobIds)}
+
                     </>
                   ) : msg.role === 'user' ? (
                     renderUserMessage(msg.content)

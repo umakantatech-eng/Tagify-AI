@@ -580,9 +580,10 @@ function App() {
   // ═══════════════════════════════════════════════════════
   const CATEGORY_COLS = {
     'Kurti':  ["Color", "Fit/Shape", "Neck", "Occasion", "Ornamentation", "Pattern", "PnP", "Sleeve Styling", "Length", "Sleeve Length"],
-    'Saree':  ["Blouse Color", "blouse_pattern", "border", "border_width", "color", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type", "transparency"],
+    'Saree':  ["Blouse Color", "blouse_pattern", "border", "border_width", "color", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type"],
     // Future: 'Lehenga': [...], 'Dupatta': [...], etc.
   };
+
 
 
 

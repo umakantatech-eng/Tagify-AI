@@ -72,6 +72,9 @@ Extract these EXACT fields with EXACT key names as shown:
 
 - "blouse_pattern": Pattern on the blouse.
   ⚠️ CASCADE RULE: If "Blouse Color" = "Not Available" → "blouse_pattern" MUST ALSO be "Not Available"
+  → If Blouse print/pattern matches Saree's print/pattern EXACTLY → "Same as Saree"
+  → If Blouse border matches Saree's border EXACTLY → "Same as Border"
+  → If Blouse print matches Saree's Pallu print EXACTLY → "Same as Pallu"
   [Same as Saree, Same as Border, Same as Pallu, Printed, Embroidered, Embellished, Solid, Sequence, Zari Woven, Not Available, Woven Design]
 
 - "border": Type of border on the saree.
@@ -95,6 +98,8 @@ Extract these EXACT fields with EXACT key names as shown:
 
 - "pallu_details": The decorative end piece hanging over the shoulder.
   ⚠️ CRITICAL RULE: If the saree is FOLDED (like a packed rectangle), CROPPED so pallu is not shown, or pallu is simply NOT VISIBLE → output "Not Available". Do NOT guess.
+  → If the Pallu has the exact same print/pattern as the rest of the Saree body (no different design at the end) → "Same as Saree"
+  → If the Pallu's print/design matches the Saree's border design EXACTLY → "Same as Border"
   [Same as Saree, Same as Border, Embroidered, Solid, Printed, Half & Half, Not Available, Zari Woven, Embellished, Woven Design]
 
 - "pattern": Overall pattern of the main saree body
@@ -110,12 +115,6 @@ Extract these EXACT fields with EXACT key names as shown:
     • pattern = Dyed/ Washed → print_or_pattern_type MUST be ONE OF: [Leheriya, Shibori, Batik, Tie and Dye] — pick the most visually accurate
   [Checked, Colorblocked, Solid, Striped, Embellished, Leheriya, Shibori, Batik, Tie and Dye, Abstract, Animal, Bandhani, Chevron, Ethnic Motif, Floral, Geometric, Paisley, Quirky, Tribal, Ikat, Warli, Kalamkari, Houndstooth, Polka Dot, Botanical, Zari butta, Foil, Micro, Butterfly, Nath, Newspaper Print, Peacock, Elephant]
 
-- "transparency": Is the fabric see-through?
-  → "Yes" = clearly transparent/sheer fabric (georgette, chiffon, net)
-  → "No" = opaque fabric (silk, cotton, crepe)
-  → "Not Available" = cannot determine from image
-  [Yes, No, Not Available]
-
 ═══════════════════════════════════════════════════════
 OUTPUT FORMAT (STRICT)
 ═══════════════════════════════════════════════════════
@@ -129,7 +128,7 @@ Return ONLY a raw JSON ARRAY of N objects. Each object MUST have:
 Example for a mixed batch:
 [
   {"_category": "Kurti", "Reasoning": "...", "Color": "Red", "Fit/Shape": "A-line", ...},
-  {"_category": "Saree", "Reasoning": "...", "color": "Green", "Blouse Color": "Matching", "blouse_pattern": "Embroidered", "border": "Zari Border", "border_width": "Small Border", "occasion": "Festive", "ornamentation": "Zari Work", "pallu_details": "Woven", "pattern": "Woven Design", "print_or_pattern_type": "Ethnic Motif", "transparency": "No"}
+  {"_category": "Saree", "Reasoning": "...", "color": "Green", "Blouse Color": "Matching", "blouse_pattern": "Embroidered", "border": "Zari Border", "border_width": "Small Border", "occasion": "Festive", "ornamentation": "Zari Work", "pallu_details": "Woven", "pattern": "Woven Design", "print_or_pattern_type": "Ethnic Motif"}
 ]
 """
 

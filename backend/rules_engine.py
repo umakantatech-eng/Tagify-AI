@@ -82,10 +82,7 @@ SAREE_TAXONOMY = {
         "Kalamkari", "Houndstooth", "Polka Dot", "Botanical",
         "Zari butta", "Foil", "Micro", "Butterfly", "Nath", "Newspaper Print",
         "Peacock", "Elephant"
-    ],
-
-    # 11. transparency
-    "transparency": ["Yes", "No", "Not Available"]
+    ]
 }
 
 # Master taxonomy registry — add new categories here
@@ -148,13 +145,13 @@ def _default_value(key: str) -> str:
 
 def is_saree_result(ai_result: dict) -> bool:
     saree_keys = {"color", "Blouse Color", "blouse_pattern", "border",
-                  "border_width", "pallu_details", "print_or_pattern_type", "transparency"}
+                  "border_width", "pallu_details", "print_or_pattern_type"}
     return bool(saree_keys.intersection(ai_result.keys()))
 
 
 def _detect_category_from_keys(ai_result: dict) -> str:
     saree_indicators = {"color", "Blouse Color", "blouse_pattern",
-                        "pallu_details", "transparency", "print_or_pattern_type"}
+                        "pallu_details", "print_or_pattern_type"}
     kurti_indicators = {"Fit/Shape", "Neck", "Sleeve Styling", "Sleeve Length", "PnP"}
     result_keys = set(ai_result.keys())
     if len(saree_indicators & result_keys) > len(kurti_indicators & result_keys):
@@ -275,26 +272,17 @@ def _apply_saree_rules(result: dict) -> dict:
     elif pattern == "Dyed/ Washed":
         valid_dyed = ["Leheriya", "Shibori", "Batik", "Tie and Dye"]
         if pnp not in valid_dyed:
-            result["print_or_pattern_type"] = "Tie and Dye"
+            result["print_or_pattern_type"] = "Shibori"
+        elif pnp == "Tie and Dye":
+            result["print_or_pattern_type"] = "Shibori"
+    elif pnp == "Tie and Dye":
+        result["print_or_pattern_type"] = "Shibori"
 
     # ── RULE 5: occasion normalization ──
-    valid_occasions = SAREE_TAXONOMY["occasion"]
-    if result.get("occasion") not in valid_occasions:
-        orn = result.get("ornamentation", "")
-        pat = result.get("pattern", "")
-        festive_triggers = ["Embroidered", "Zari", "Sequin", "Sequence", "Embellished", "Beads", "Mirror"]
-        if any(t in pat + orn for t in festive_triggers):
-            result["occasion"] = "Party"
-        else:
-            result["occasion"] = "Daily"
-
-    # ── RULE 6: transparency normalization ──
-    trans = result.get("transparency", "")
-    if trans.lower() in ["true", "yes", "transparent", "sheer", "semi-transparent"]:
-        result["transparency"] = "Yes"
-    elif trans.lower() in ["false", "no", "opaque", "not transparent"]:
-        result["transparency"] = "No"
-    elif trans not in ["Yes", "No", "Not Available"]:
-        result["transparency"] = "Not Available"
+    # Daily if pattern is Printed, Solid, Striped, Checked, Dyed/Washed. Else Party.
+    if pattern in ["Printed", "Solid", "Striped", "Checked", "Dyed/ Washed"]:
+        result["occasion"] = "Daily"
+    else:
+        result["occasion"] = "Party"
 
     return result

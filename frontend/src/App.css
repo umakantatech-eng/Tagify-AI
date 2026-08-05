@@ -571,6 +571,9 @@ body, html, #root {
   text-transform: uppercase;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .tag-table td {
   padding: 12px 20px;

@@ -63,6 +63,7 @@ Extract these EXACT fields:
 Extract these EXACT fields with EXACT key names as shown:
 
 - "color": Dominant color of the main saree fabric drape
+  → HINT: Bright greenish-yellows (like neon or lime) should be classified as "Yellow" or "Lemon Yellow", not Green.
   [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow, Lemon Yellow, Gold]
 
 - "Blouse Color": Color of the blouse piece.
@@ -74,17 +75,22 @@ Extract these EXACT fields with EXACT key names as shown:
   [Same as Saree, Same as Border, Same as Pallu, Printed, Embroidered, Embellished, Solid, Sequence, Zari Woven, Not Available, Woven Design]
 
 - "border": Type of border on the saree.
+  → Extract the border type EVEN IF the saree is folded, as long as a distinct edge is visible.
+  → Do not confuse Printed borders (flat dye on fabric) with Embroidered (raised threadwork). Lace is a separately attached strip.
   → If NO border is visible → output "No Border"
   [No Border, Not Available, Embroidered, Solid, Woven Design, Zari, Embellished, Printed, Lace, Temple Border]
 
 - "border_width": How wide/thick the border looks.
   ⚠️ CASCADE RULE: If "border" = "No Border" → "border_width" MUST ALSO be "No Border"
+  → "Small Border": Standard narrow borders (approx 2-5 inches), taking up a small fraction of the drape.
+  → "Big Border": Very wide, tall borders taking up a massive portion (15-30%+) of the saree height.
   [No Border, Not Available, Big Border, Small Border]
 
 - "occasion": Best use occasion
   [Daily, Party, Traditional, Celebrity Inspire]
 
 - "ornamentation": Surface embellishments visible on the saree
+  → Distinguish carefully: Embroidery is thread, Lace is attached mesh/cutwork, Sequinned/Mirror are shiny additions.
   [Embroidered, Beads & Stones, Mirror Work, Sequinned, Applique, Tassels and Latkans, Ruffle, Lace border, Pom - Pom, Not Applicable]
 
 - "pallu_details": The decorative end piece hanging over the shoulder.

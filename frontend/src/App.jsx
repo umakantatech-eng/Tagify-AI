@@ -599,21 +599,18 @@ function App() {
     const progressPercent = categoryJobs.length === 0 ? 0 : Math.round((completedCount / categoryJobs.length) * 100);
     
     const catColor = CATEGORY_COLORS[categoryLabel] || CATEGORY_COLORS['default'];
-    const allCols = CATEGORY_COLS[categoryLabel] || Object.keys(completedJobs[0]?.result || {}).filter(k => !k.startsWith('_') && k !== 'Reasoning' && k !== 'Confidence');
-    
-    // Only show columns with at least one non-empty value
-    const visibleCols = allCols.filter(col => {
-      if (completedJobs.length === 0) return true;
-      return completedJobs.some(j => {
-        const val = j.result[col];
-        return val && val !== '-' && val !== 'Not Available' && val !== 'Not Applicable';
-      });
-    });
+    // ✅ FIX 1: Always show ALL defined columns — never hide based on values
+    // This prevents Color/any column from going blank
+    const visibleCols = CATEGORY_COLS[categoryLabel] || 
+      Object.keys(completedJobs[0]?.result || {}).filter(k => !k.startsWith('_') && k !== 'Reasoning' && k !== 'Confidence');
 
+    // ✅ FIX 2: Export/Copy uses original order (all category jobs in order, only completed)
     const copyToClipboard = () => {
       if (completedJobs.length === 0) return;
-      const header = ["SL.NO", "IMAGE", ...visibleCols].join('\t');
-      const rows = completedJobs.map((j, idx) => {
+      // Use categoryJobs (original order) but only export completed ones
+      const orderedCompleted = categoryJobs.filter(j => j.status === 'completed' && j.result);
+      const header = ["SL.NO", "IMAGE URL", ...visibleCols].join('\t');
+      const rows = orderedCompleted.map((j, idx) => {
         const r = [idx + 1, j.previewUrl];
         visibleCols.forEach(c => r.push(j.result[c] || ''));
         return r.join('\t');
@@ -624,8 +621,10 @@ function App() {
 
     const exportCSV = () => {
       if (completedJobs.length === 0) return;
-      const header = ["SL.NO", "IMAGE", ...visibleCols].join(',');
-      const rows = completedJobs.map((j, idx) => {
+      // Use categoryJobs (original order) but only export completed ones
+      const orderedCompleted = categoryJobs.filter(j => j.status === 'completed' && j.result);
+      const header = ["SL.NO", "IMAGE URL", ...visibleCols].join(',');
+      const rows = orderedCompleted.map((j, idx) => {
         const r = [idx + 1, j.previewUrl];
         visibleCols.forEach(c => {
           const val = (j.result[c] || '').toString().replace(/"/g, '""');
@@ -688,6 +687,7 @@ function App() {
           <tbody>
             {categoryJobs.map((job, idx) => {
               const res = job.result || {};
+              const isPending = job.status === 'queued' || job.status === 'processing';
               const getProductId = (url) => {
                 try {
                   const match = url.match(/\/products\/(\d+)\//);
@@ -695,7 +695,8 @@ function App() {
                 } catch { return idx + 1; }
               };
               return (
-                <tr key={job.id}>
+                // ✅ FIX 3: Show ALL rows in original order — pending rows show skeleton placeholders
+                <tr key={job.id} style={isPending ? {opacity: 0.5} : {}}>
                   <td className="sl-no">{getProductId(job.previewUrl)}</td>
                   <td className="img-cell">
                     <img src={job.previewUrl} className="td-image" alt="item"
@@ -704,17 +705,21 @@ function App() {
                   </td>
                   {visibleCols.map(col => (
                     <td key={col} className={
-                      res[col] && res[col] !== '-' && res[col] !== 'Not Available' && res[col] !== 'Not Applicable'
+                      !isPending && res[col] && res[col] !== '-' && res[col] !== 'Not Available' && res[col] !== 'Not Applicable'
                         ? 'success' : ''
                     }>
-                      {res[col] || '-'}
+                      {isPending 
+                        ? <span style={{color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic'}}>…</span>
+                        : (res[col] || '-')
+                      }
                     </td>
                   ))}
                   <td>
                     {job.status === 'queued' && <span style={{color: '#eab308', fontSize: 12}}>Queued</span>}
-                    {job.status === 'processing' && <span style={{color: '#3b82f6', fontSize: 12}}>Processing...</span>}
+                    {job.status === 'processing' && <span style={{color: '#3b82f6', fontSize: 12}}>Processing…</span>}
                     {job.status === 'completed' && <span style={{color: 'var(--success-color)', fontSize: 12}}>Done</span>}
                     {job.status === 'failed' && <span style={{color: 'var(--error-color)', fontSize: 12}}>Failed</span>}
+                    {job.status === 'cancelled' && <span style={{color: 'var(--text-secondary)', fontSize: 12}}>Cancelled</span>}
                   </td>
                 </tr>
               );

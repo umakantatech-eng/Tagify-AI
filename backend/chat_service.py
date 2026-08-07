@@ -1,5 +1,7 @@
 import os
-import google.generativeai as genai
+import json
+import asyncio
+import aiohttp
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,49 +12,49 @@ If a user asks about image tagging, simply say you can extract Fit/Shape, Neck, 
 DO NOT output long paragraphs.
 """
 
-def get_chat_model(user_api_key=None):
-    api_key = user_api_key or os.getenv("GEMINI_API_KEY")
-    if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return None
-        
-    genai.configure(api_key=api_key)
-    try:
-        # User's API environment only supports gemini-3.5-flash-lite, so we must use it for chat as well.
-        model = genai.GenerativeModel('gemini-3.5-flash-lite', system_instruction=SYSTEM_INSTRUCTION)
-        return model
-    except Exception as e:
-        print(f"Error initializing chat model: {e}")
-        return None
-
 async def handle_chat_message(message: str, history: list = None, user_api_key: str = None):
     """
     Handles a text message from the user and returns the AI's response.
+    Uses google.genai REST API directly to avoid deprecated SDK.
     """
-    model = get_chat_model(user_api_key)
-    if not model:
+    api_key = user_api_key or os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "YOUR_API_KEY_HERE":
         return {"error": "API Key not configured properly"}
 
     try:
-        # Note: If history is provided, we could use model.start_chat(history=history).
-        # For simplicity in this endpoint, we'll just format it as a prompt if needed, 
-        # or use the built-in chat session.
-        formatted_history = []
+        # Build conversation contents
+        contents = []
         if history:
             for msg in history:
-                # Safely get content, skip table UI messages that don't have text content
                 content = msg.get("content")
-                if not content:
+                if not content or not isinstance(content, str):
                     continue
-                    
                 role = "user" if msg.get("role") == "user" else "model"
-                formatted_history.append({"role": role, "parts": [content]})
-                
-        chat = model.start_chat(history=formatted_history)
-        
-        # Send message in a thread to avoid blocking FastAPI event loop
-        import asyncio
-        response = await asyncio.to_thread(chat.send_message, message)
-        return {"response": response.text}
+                contents.append({"role": role, "parts": [{"text": content}]})
+
+        # Add current message
+        contents.append({"role": "user", "parts": [{"text": message}]})
+
+        payload = {
+            "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
+            "contents": contents,
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 200}
+        }
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                resp_json = await response.json()
+                if "error" in resp_json:
+                    return {"error": resp_json["error"].get("message", "API Error")}
+                text = resp_json["candidates"][0]["content"]["parts"][0]["text"]
+                return {"response": text}
+
     except Exception as e:
         print(f"Chat API Error: {e}")
         return {"error": str(e)}

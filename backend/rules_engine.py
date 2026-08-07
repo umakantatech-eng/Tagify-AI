@@ -124,19 +124,26 @@ def get_nearest_taxonomy_value(key: str, value: str, taxonomy: dict) -> str:
 
 def _default_value(key: str) -> str:
     """Return a sensible default when no taxonomy match is found."""
+    # Color is always determinable — if AI didn't provide, use Multicolor
+    if key in {"Color", "color"}:
+        return "Multicolor"
+    # Fields that default to 'Not Available'
     na_fields = {
-        "Length", "Sleeve Length", "Sleeve Styling", "Fit/Shape", "Neck",
-        "Blouse_color", "Blouse_pattern", "Pallu_details", "Transparency"
+        "Fit/Shape", "Neck", "Sleeve Styling", "Length", "Sleeve Length",
+        "Occasion", "Pattern", "PnP",
+        # Saree fields
+        "Blouse Color", "blouse_pattern", "border_width",
+        "pallu_details", "print_or_pattern_type"
     }
-    nb_fields = {"Border", "Border_width"}
-    nap_fields = {"Ornamentation"}
+    nb_fields = {"border"}
+    nap_fields = {"Ornamentation", "ornamentation"}
     if key in na_fields:
         return "Not Available"
     if key in nb_fields:
         return "No Border"
     if key in nap_fields:
         return "Not Applicable"
-    return ""
+    return "Not Available"  # Safe fallback for anything else
 
 
 # ============================================================
@@ -167,10 +174,16 @@ def validate_and_correct(ai_result: dict) -> dict:
     """
     Detects category from AI result and applies category-specific
     validation + hard cascade rules.
+    Always guarantees _category is set in output.
     """
+    # If there's an error key, still try to detect category from other keys
     category = ai_result.get("_category", "").strip()
-    if category not in CATEGORY_TAXONOMY:
+    if not category or category not in CATEGORY_TAXONOMY:
         category = _detect_category_from_keys(ai_result)
+
+    # Final safety: must be a known category
+    if category not in CATEGORY_TAXONOMY:
+        category = "Kurti"
 
     taxonomy = CATEGORY_TAXONOMY.get(category, KURTI_TAXONOMY)
 
@@ -246,9 +259,11 @@ def _apply_saree_rules(result: dict) -> dict:
 
     # ── RULE 2: border cascade ──
     border = result.get("border", "")
-    if border in ["No Border", "Not Available", ""]:
-        result["border"] = "No Border" if border != "Not Available" else "Not Available"
-        result["border_width"] = border if border != "" else "No Border"
+    if border == "No Border":
+        result["border_width"] = "No Border"
+    elif not border or border == "":
+        result["border"] = "No Border"
+        result["border_width"] = "No Border"
 
     # ── RULE 3: Pallu — normalize to Not Available if not in valid list ──
     pallu = result.get("pallu_details", "")
@@ -279,10 +294,14 @@ def _apply_saree_rules(result: dict) -> dict:
         result["print_or_pattern_type"] = "Shibori"
 
     # ── RULE 5: occasion normalization ──
-    # Daily if pattern is Printed, Solid, Striped, Checked, Dyed/Washed. Else Party.
-    if pattern in ["Printed", "Solid", "Striped", "Checked", "Dyed/ Washed"]:
-        result["occasion"] = "Daily"
-    else:
-        result["occasion"] = "Party"
+    # Only override if AI gave an invalid value outside our list
+    valid_occasions = SAREE_TAXONOMY["occasion"]
+    current_occasion = result.get("occasion", "")
+    if current_occasion not in valid_occasions:
+        # Auto-infer: simple patterns → Daily, fancy → Party
+        if pattern in ["Printed", "Solid", "Striped", "Checked", "Dyed/ Washed"]:
+            result["occasion"] = "Daily"
+        else:
+            result["occasion"] = "Party"
 
     return result

@@ -48,7 +48,12 @@ STEP 2: EXTRACT ATTRIBUTES based on detected category
 
 ━━━ IF CATEGORY = "Kurti" ━━━
 Extract these EXACT fields:
-- Color: Main fabric base color [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolour, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow]
+- Color: The DOMINANT base color of the garment fabric.
+  ⚠️ MANDATORY: You MUST always output a Color. NEVER leave it empty.
+  → If the image shows MULTIPLE different-colored garments → output "Multicolor"
+  → If only ONE garment is shown → output its most dominant base color
+  → Ignore background, packaging, model skin — focus on the fabric color ONLY
+  [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow, Lemon Yellow, Gold]
 - Fit/Shape: [A-line, Anarkali, Angrakha, Assymetrical, Flared, Gown, High-Slit, Jacket Kurta, Kaftan, Maternity, Short Kurti, Shrug Kurti, Tiered] — NOTE: Classify any straight-cut as "A-line". If length is Above Knee → "Short Kurti".
 - Neck: [Boat, Halter, Keyhole, Mandarin, Notch, Paan, Round, Scoop, Shirt, Square, Stylised, Surplice, Sweetheart, Tie - Up, V-neck] — NOTE: Notch = small V-slit in round neck. Round = pure circle with NO slit.
 - Occasion: [Daily, Party, Maternity]

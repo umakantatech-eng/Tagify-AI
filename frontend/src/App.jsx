@@ -734,22 +734,31 @@ function App() {
 
   // Main render function — groups by category and renders separate tables
   const renderTable = (jobIds) => {
-    const tableJobs = jobs.filter(j => jobIds.includes(j.id));
+    // Filter to jobs that belong to this chat message, preserving original URL order
+    const tableJobs = jobIds.map(id => jobs.find(j => j.id === id)).filter(Boolean);
     const totalCount = tableJobs.length;
-    const completedCount = tableJobs.filter(j => j.status === 'completed' || j.status === 'failed').length;
+    const completedCount = tableJobs.filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled').length;
 
-    // Group jobs by detected category
+    // Group jobs by detected category — preserve original order per category
     const categoryGroups = {};
-    const pendingJobs = []; // Jobs still processing (no category yet)
+    const pendingJobs = []; // ONLY jobs still actively queued/processing (no result yet)
 
     tableJobs.forEach(job => {
+      const isActivelyPending = job.status === 'queued' || job.status === 'processing';
       const cat = job.result?._category;
+
       if (cat) {
+        // Has a valid category — group it
         if (!categoryGroups[cat]) categoryGroups[cat] = [];
         categoryGroups[cat].push(job);
-      } else {
-        // Still processing or no category — add to a "Processing" bucket
+      } else if (isActivelyPending) {
+        // Still in queue/processing — genuinely pending
         pendingJobs.push(job);
+      } else {
+        // Completed/failed but no _category (error result) — put in 'Unknown' group
+        const fallback = '_Error';
+        if (!categoryGroups[fallback]) categoryGroups[fallback] = [];
+        categoryGroups[fallback].push(job);
       }
     });
 
@@ -757,15 +766,15 @@ function App() {
 
     return (
       <div style={{width: '100%'}}>
-        {/* Overall progress if multiple categories or jobs still pending */}
-        {(categoryKeys.length > 1 || pendingJobs.length > 0) && (
+        {/* Overall progress — only show if multiple categories OR genuinely pending jobs exist */}
+        {(categoryKeys.filter(k => k !== '_Error').length > 1 || pendingJobs.length > 0) && (
           <div style={{
             padding: '10px 16px', marginBottom: 8,
             background: 'var(--card-bg)', borderRadius: 8,
             display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap'
           }}>
             <span style={{fontWeight: 600, fontSize: 13}}>Total: {completedCount} / {totalCount} processed</span>
-            {categoryKeys.map(cat => (
+            {categoryKeys.filter(k => k !== '_Error').map(cat => (
               <span key={cat} style={{
                 fontSize: 12, padding: '2px 8px', borderRadius: 4,
                 background: CATEGORY_COLORS[cat] || CATEGORY_COLORS['default'],
@@ -776,7 +785,7 @@ function App() {
             ))}
             {pendingJobs.length > 0 && (
               <span style={{fontSize: 12, color: '#eab308'}}>
-                ⏳ {pendingJobs.length} pending detection...
+                ⏳ {pendingJobs.length} processing...
               </span>
             )}
             {isProcessing && (
@@ -788,12 +797,21 @@ function App() {
         )}
 
         {/* Render one table per detected category */}
-        {categoryKeys.map((cat, i) =>
-          renderSingleCategoryTable(cat, categoryGroups[cat], totalCount, i === 0)
-        )}
+        {(() => {
+          // Merge _Error jobs into the first real category group or 'Kurti' fallback
+          const mergedGroups = { ...categoryGroups };
+          if (mergedGroups['_Error'] && mergedGroups['_Error'].length > 0) {
+            const fallbackCat = categoryKeys.find(k => k !== '_Error') || 'Kurti';
+            mergedGroups[fallbackCat] = [...(mergedGroups[fallbackCat] || []), ...mergedGroups['_Error']];
+            delete mergedGroups['_Error'];
+          }
+          return Object.keys(mergedGroups).map((cat, i) =>
+            renderSingleCategoryTable(cat, mergedGroups[cat], totalCount, i === 0)
+          );
+        })()}
 
-        {/* Show pending jobs (still processing, no category yet) in a minimal table */}
-        {pendingJobs.length > 0 && categoryKeys.length === 0 && (
+        {/* Show pending jobs table when some are still queued/processing */}
+        {pendingJobs.length > 0 && (
           <div className="studio-table-wrapper" style={{margin: '10px 0'}}>
             <div className="studio-table-header">
               <div style={{fontWeight: 600}}>Processing... ({pendingJobs.length} images)</div>

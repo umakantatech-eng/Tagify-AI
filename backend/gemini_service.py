@@ -58,8 +58,16 @@ Extract these EXACT fields:
 - Neck: [Boat, Halter, Keyhole, Mandarin, Notch, Paan, Round, Scoop, Shirt, Square, Stylised, Surplice, Sweetheart, Tie - Up, V-neck] — NOTE: Notch = small V-slit in round neck. Round = pure circle with NO slit.
 - Occasion: [Daily, Party, Maternity]
 - Ornamentation: [Beads & Stones, Embroidered, Lace border, Mirror Work, Pom-Pom, Ruffle, Sequinned, Show Button, Tassels and Latkans, Tie-Ups, Not Applicable]
-- Pattern: [Checked, Chikankari, Colorblocked, Dyed/ Washed, Embellished, Embroidered, Printed, Self-Design, Solid, Striped, Woven Design, Zari Woven]
-- PnP: [Abstract, Animal, Bandhani, Botanical, Checked, Chevron, Colorblocked, Embellished, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Leheriya, Micro, Paisley, Polka Dot, Quirky, Shibori, Solid, Stripe, Tie and Dye, Tribal, Warli]
+- Pattern: Overall pattern on the kurti. [Checked, Chikankari, Colorblocked, Dyed/ Washed, Embellished, Embroidered, Printed, Self-Design, Solid, Striped, Woven Design, Zari Woven]
+- PnP: Specific print motif or design (Print and Pattern).
+  ⚠️ CASCADE RULES (MANDATORY):
+    • Pattern = Solid → PnP MUST be "Solid"
+    • Pattern = Checked → PnP MUST be "Checked"
+    • Pattern = Colorblocked → PnP MUST be "Colorblocked"
+    • Pattern = Striped → PnP MUST be "Stripe"
+    • Pattern = Embellished → PnP MUST be "Embellished"
+    • Pattern = Dyed/ Washed → PnP MUST be ONE OF: [Leheriya, Shibori, Bandhani, Tie and Dye]
+  [Abstract, Animal, Bandhani, Botanical, Checked, Chevron, Colorblocked, Embellished, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Leheriya, Micro, Paisley, Polka Dot, Quirky, Shibori, Solid, Stripe, Tie and Dye, Tribal, Warli]
 - Sleeve Styling: [Batwing, Bell, Cap, Cape, Cold Shoulder, Cuffed, Cut Out, Extended, Flared, Flutter, Kimono, One Side Sleeve, Puff, Regular, Roll-Up, Shoulder Strap, Sleeveless, Not Available]
 - Length: [Above Knee, Ankle Length, Calf Length, Knee length, Not Available] — If folded/packet, output "Not Available"
 - Sleeve Length: [Long Sleeves, Short Sleeves, Sleeveless, Three-Quarter Sleeves, Not Available]

@@ -124,13 +124,10 @@ def get_nearest_taxonomy_value(key: str, value: str, taxonomy: dict) -> str:
 
 def _default_value(key: str) -> str:
     """Return a sensible default when no taxonomy match is found."""
-    # Color is always determinable — if AI didn't provide, use Multicolor
-    if key in {"Color", "color"}:
-        return "Multicolor"
     # Fields that default to 'Not Available'
     na_fields = {
-        "Fit/Shape", "Neck", "Sleeve Styling", "Length", "Sleeve Length",
-        "Occasion", "Pattern", "PnP",
+        "Color", "Fit/Shape", "Neck", "Sleeve Styling", "Length", "Sleeve Length",
+        "Occasion", "Pattern", "PnP", "color",
         # Saree fields
         "Blouse Color", "blouse_pattern", "border_width",
         "pallu_details", "print_or_pattern_type"

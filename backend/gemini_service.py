@@ -20,14 +20,9 @@ CATEGORY_REGISTRY = {
         "description": "A short or long Indian top garment (kurti/kurta) worn alone or with pants/leggings/palazzo. NOT a saree."
     },
     "Saree": {
-        "fields": ["Saree_color", "Blouse_color", "Blouse_pattern", "Border", "Border_width", "Occasion", "Ornamentation", "Pallu_details", "Pattern", "Print_and_pattern", "Transparency"],
+        "fields": ["color", "Blouse Color", "blouse_pattern", "border", "border_width", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type"],
         "description": "A traditional Indian draped garment consisting of a long unstitched cloth, worn with a blouse piece."
     }
-    # To add a new category e.g. Lehenga:
-    # "Lehenga": {
-    #     "fields": ["Color", "Pattern", "Occasion", "Ornamentation", ...],
-    #     "description": "..."
-    # }
 }
 
 # ============================================================
@@ -49,24 +44,28 @@ STEP 2: EXTRACT ATTRIBUTES based on detected category
 ━━━ IF CATEGORY = "Kurti" ━━━
 Extract these EXACT fields:
 - Color: The DOMINANT base/background color of the garment fabric.
-  ⚠️ CRITICAL RULES FOR COLOR:
-  → You MUST output a valid color from the list. NEVER leave it empty.
-  → If it is a SINGLE garment with a print/pattern, pick the MAIN background color. Do NOT use "Multicolor" just because it has a colorful print.
-  → ONLY use "Multicolor" if the image shows a GROUP of multiple garments in completely different colors (e.g., a catalog shot of 4 different colored kurtis).
+  ⚠️ CRITICAL RULES:
+  → MUST output a value from the list. NEVER leave empty.
+  → Printed garments: return the BACKGROUND fabric color (e.g., a pink kurti with white flowers → "Pink")
+  → Use "Multicolor" ONLY if the garment fabric itself has equal amounts of multiple colors (like rainbow tie-dye or big color-block panels with 3+ colors).
+  → Do NOT use "Multicolor" just because a print has multiple colored elements on a single-color base.
+  → If the same product is shown in multiple color options side by side, pick the COLOR OF THE LARGEST/MOST VISIBLE piece.
   [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow, Lemon Yellow, Gold]
 - Fit/Shape: [A-line, Anarkali, Angrakha, Assymetrical, Flared, Gown, High-Slit, Jacket Kurta, Kaftan, Maternity, Short Kurti, Shrug Kurti, Tiered] — NOTE: Classify any straight-cut as "A-line". If length is Above Knee → "Short Kurti".
 - Neck: [Boat, Halter, Keyhole, Mandarin, Notch, Paan, Round, Scoop, Shirt, Square, Stylised, Surplice, Sweetheart, Tie - Up, V-neck] — NOTE: Notch = small V-slit in round neck. Round = pure circle with NO slit.
 - Occasion: [Daily, Party, Maternity]
 - Ornamentation: [Beads & Stones, Embroidered, Lace border, Mirror Work, Pom-Pom, Ruffle, Sequinned, Show Button, Tassels and Latkans, Tie-Ups, Not Applicable]
-- Pattern: Overall pattern on the kurti. [Checked, Chikankari, Colorblocked, Dyed/ Washed, Embellished, Embroidered, Printed, Self-Design, Solid, Striped, Woven Design, Zari Woven]
-- PnP: Specific print motif or design (Print and Pattern).
-  ⚠️ CASCADE RULES (MANDATORY):
-    • Pattern = Solid → PnP MUST be "Solid"
-    • Pattern = Checked → PnP MUST be "Checked"
-    • Pattern = Colorblocked → PnP MUST be "Colorblocked"
-    • Pattern = Striped → PnP MUST be "Stripe"
-    • Pattern = Embellished → PnP MUST be "Embellished"
-    • Pattern = Dyed/ Washed → PnP MUST be ONE OF: [Leheriya, Shibori, Bandhani, Tie and Dye]
+- Pattern: Overall surface pattern/technique on the kurti.
+  [Checked, Chikankari, Colorblocked, Dyed/ Washed, Embellished, Embroidered, Printed, Self-Design, Solid, Striped, Woven Design, Zari Woven]
+- PnP: The specific MOTIF or design type. Follow cascade rules STRICTLY:
+  • Pattern = Solid → PnP = "Solid"
+  • Pattern = Checked → PnP = "Checked"
+  • Pattern = Colorblocked → PnP = "Colorblocked"
+  • Pattern = Striped → PnP = "Stripe"
+  • Pattern = Embellished → PnP = "Embellished"
+  • Pattern = Dyed/ Washed → PnP = one of [Leheriya, Shibori, Bandhani, Tie and Dye] — pick most accurate
+  • Pattern = Printed → PnP = the SPECIFIC print motif: [Abstract, Animal, Botanical, Chevron, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Micro, Paisley, Polka Dot, Quirky, Tribal, Warli]
+  • Pattern = Embroidered / Chikankari / Woven Design / Zari Woven → PnP = "Ethnic Motif" (or the closest matching motif)
   [Abstract, Animal, Bandhani, Botanical, Checked, Chevron, Colorblocked, Embellished, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Leheriya, Micro, Paisley, Polka Dot, Quirky, Shibori, Solid, Stripe, Tie and Dye, Tribal, Warli]
 - Sleeve Styling: [Batwing, Bell, Cap, Cape, Cold Shoulder, Cuffed, Cut Out, Extended, Flared, Flutter, Kimono, One Side Sleeve, Puff, Regular, Roll-Up, Shoulder Strap, Sleeveless, Not Available]
 - Length: [Above Knee, Ankle Length, Calf Length, Knee length, Not Available] — If folded/packet, output "Not Available"

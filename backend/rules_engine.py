@@ -11,6 +11,8 @@ COLORS_COMMON = [
     "Lemon Yellow", "Gold"
 ]
 
+MEN_SHIRT_COLORS = COLORS_COMMON + ["Rust", "Lavender"]
+
 KURTI_TAXONOMY = {
     "Color": COLORS_COMMON,
     "Fit/Shape": [
@@ -56,6 +58,32 @@ KURTI_TAXONOMY = {
     ]
 }
 
+MEN_SHIRT_TAXONOMY = {
+    # Exact order matches required header order
+    "closure": ["Asymmetrical", "Symmetric"],
+    "color": MEN_SHIRT_COLORS,
+    "hemline": ["Curved", "Straight", "Asymmetric", "High-Low"],
+    "length": ["Regular", "Longline", "Crop"],
+    "neck": ["Mandarin", "Collarless", "Spread Collar", "Hood", "Contrast Collar"],
+    "occasion": ["Casual", "Formal", "Party"],
+    "pattern": [
+        "Checked", "Colorblocked", "Dyed/ Washed", "Embellished",
+        "Printed", "Self-Design", "Solid", "Striped"
+    ],
+    "print_or_pattern_type": [
+        "Abstract", "Animal", "Back Print", "Botanical", "Camouflage",
+        "Cartoons", "Checked", "Chevron", "Colorblocked", "Conversational",
+        "Ethnic Motif", "Faded", "Floral", "Geometric", "Goa",
+        "Graphic Print", "Horizontal Stripes", "Houndstooth", "Micro Print",
+        "Newspaper", "Ombre", "Paisley", "Placement Print", "Polka Dots",
+        "Quirky", "Religious Print", "Solid", "Stripe", "Tribal",
+        "Typography", "Vertical Stripes"
+    ],
+    "sleeve_length": ["Short Sleeves", "Long Sleeves", "Three-Quarter Sleeves"],
+    "sleeve_styling": ["Regular", "Roll-Up", "Cuffed", "Elbow Patches", "Doctor Sleeves"],
+    "fit_shape": ["Regular", "Shackets", "Shirt Over Tshirt", "Cargo"],
+}
+
 SAREE_TAXONOMY = {
     "Blouse Color": COLORS_COMMON + ["Not Available"],
     "blouse_pattern": [
@@ -99,6 +127,7 @@ SAREE_TAXONOMY = {
 CATEGORY_TAXONOMY = {
     "Kurti": KURTI_TAXONOMY,
     "Saree": SAREE_TAXONOMY,
+    "Men Shirt": MEN_SHIRT_TAXONOMY,
 }
 
 
@@ -215,6 +244,11 @@ def get_nearest_taxonomy_value(key: str, value: str, taxonomy: dict) -> str:
 
     # 2. Color fields: use alias map first (no false partial matches)
     if key in {"Color", "color", "Blouse Color"}:
+        # Special case: Men Shirt has "Rust" as valid color — check valid_values first
+        if val_lower == "rust" and "Rust" in valid_values:
+            return "Rust"
+        if val_lower == "lavender" and "Lavender" in valid_values:
+            return "Lavender"
         # Check alias map
         if val_lower in COLOR_ALIASES:
             alias_result = COLOR_ALIASES[val_lower]
@@ -273,14 +307,18 @@ def _default_value(key: str) -> str:
 # ============================================================
 
 def _detect_category_from_keys(ai_result: dict) -> str:
+    men_shirt_indicators = {"closure", "hemline", "fit_shape", "sleeve_styling", "sleeve_length"}
     saree_indicators = {
-        "color", "Blouse Color", "blouse_pattern",
+        "Blouse Color", "blouse_pattern",
         "pallu_details", "print_or_pattern_type", "border"
     }
     kurti_indicators = {"Fit/Shape", "Neck", "Sleeve Styling", "Sleeve Length", "PnP"}
     result_keys = set(ai_result.keys())
+    men_score = len(men_shirt_indicators & result_keys)
     saree_score = len(saree_indicators & result_keys)
     kurti_score = len(kurti_indicators & result_keys)
+    if men_score >= 2 and men_score >= saree_score and men_score >= kurti_score:
+        return "Men Shirt"
     if saree_score > kurti_score:
         return "Saree"
     return "Kurti"
@@ -319,6 +357,8 @@ def validate_and_correct(ai_result: dict) -> dict:
         validated = _apply_kurti_rules(validated)
     elif category == "Saree":
         validated = _apply_saree_rules(validated)
+    elif category == "Men Shirt":
+        validated = _apply_men_shirt_rules(validated)
 
     return validated
 
@@ -436,5 +476,106 @@ def _apply_saree_rules(result: dict) -> dict:
             result["occasion"] = "Daily"
         else:
             result["occasion"] = "Party"
+
+    return result
+
+
+# ============================================================
+# MEN SHIRT HARD RULES
+# ============================================================
+
+def _apply_men_shirt_rules(result: dict) -> dict:
+    pattern  = result.get("pattern", "")
+    pnp      = result.get("print_or_pattern_type", "")
+    sleeve_len = result.get("sleeve_length", "")
+    sleeve_sty = result.get("sleeve_styling", "")
+    neck     = result.get("neck", "")
+
+    # ── Rule 1: closure default ──
+    if result.get("closure") not in {"Asymmetrical", "Symmetric"}:
+        result["closure"] = "Symmetric"
+
+    # ── Rule 2: hemline ──
+    # Folded / crop / hemline not visible → Curved (most shirts are curved)
+    if result.get("hemline") not in {"Curved", "Straight", "Asymmetric", "High-Low"}:
+        result["hemline"] = "Curved"
+
+    # ── Rule 3: length ──
+    # Default Regular; folded / packaged / not fully visible → Regular
+    if result.get("length") not in {"Regular", "Longline", "Crop"}:
+        result["length"] = "Regular"
+
+    # ── Rule 4: Pattern → print_or_pattern_type cascade ──
+    PATTERN_PNP_MAP = {
+        "Solid":        "Solid",
+        "Checked":      "Checked",
+        "Colorblocked": "Colorblocked",
+        "Embellished":  "Solid",
+    }
+
+    if pattern in PATTERN_PNP_MAP:
+        result["print_or_pattern_type"] = PATTERN_PNP_MAP[pattern]
+
+    elif pattern == "Striped":
+        valid_stripe = {"Horizontal Stripes", "Vertical Stripes"}
+        if pnp not in valid_stripe:
+            result["print_or_pattern_type"] = "Horizontal Stripes"
+
+    elif pattern == "Dyed/ Washed":
+        valid_dyed = {"Faded", "Ombre"}
+        if pnp not in valid_dyed:
+            result["print_or_pattern_type"] = "Faded"
+
+    elif pattern == "Self-Design":
+        # Self-Design: keep Checked / Vertical Stripes / Horizontal Stripes if AI detected
+        valid_self = {"Checked", "Vertical Stripes", "Horizontal Stripes", "Solid"}
+        if pnp not in valid_self:
+            result["print_or_pattern_type"] = "Solid"
+
+    elif pattern == "Printed":
+        valid_printed = {
+            "Abstract", "Animal", "Back Print", "Botanical", "Camouflage",
+            "Cartoons", "Chevron", "Conversational", "Ethnic Motif", "Floral",
+            "Geometric", "Goa", "Graphic Print", "Houndstooth", "Micro Print",
+            "Newspaper", "Paisley", "Placement Print", "Polka Dots",
+            "Quirky", "Religious Print", "Tribal", "Typography"
+        }
+        if pnp not in valid_printed:
+            result["print_or_pattern_type"] = "Floral"
+
+    # ── Rule 5: sleeve_length → sleeve_styling cascade ──
+    # If sleeves not visible / folded → Long Sleeves (then cascade below)
+    valid_sleeve_len = {"Short Sleeves", "Long Sleeves", "Three-Quarter Sleeves"}
+    if sleeve_len not in valid_sleeve_len:
+        sleeve_len = "Long Sleeves"
+        result["sleeve_length"] = "Long Sleeves"
+
+    if sleeve_len == "Long Sleeves":
+        # Rolled-up → Roll-Up, otherwise → Cuffed
+        if sleeve_sty == "Roll-Up":
+            result["sleeve_styling"] = "Roll-Up"
+        else:
+            result["sleeve_styling"] = "Cuffed"
+    elif sleeve_len in {"Short Sleeves", "Three-Quarter Sleeves"}:
+        result["sleeve_styling"] = "Regular"
+
+    # ── Rule 6: fit_shape ──
+    # Priority: Hood→Shackets, visible tshirt→Shirt Over Tshirt, 2pockets→Cargo, else Regular
+    # (These visual cues come from AI — we only enforce Hood→Shackets here)
+    fit = result.get("fit_shape", "")
+    if neck == "Hood":
+        result["fit_shape"] = "Shackets"
+    elif fit not in {"Regular", "Shackets", "Shirt Over Tshirt", "Cargo"}:
+        result["fit_shape"] = "Regular"
+
+    # ── Rule 7: Occasion ──
+    occ = result.get("occasion", "")
+    valid_occ = {"Casual", "Formal", "Party"}
+    if occ not in valid_occ:
+        result["occasion"] = "Casual"
+    # Party (satin/shine) and Formal detection are handled by AI prompt guidance.
+    # Cargo → always Casual
+    if result.get("fit_shape") == "Cargo":
+        result["occasion"] = "Casual"
 
     return result

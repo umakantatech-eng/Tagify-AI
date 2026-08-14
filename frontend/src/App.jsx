@@ -579,18 +579,16 @@ function App() {
   // To add a new category, just add an entry here
   // ═══════════════════════════════════════════════════════
   const CATEGORY_COLS = {
-    'Kurti':  ["Color", "Fit/Shape", "Neck", "Occasion", "Ornamentation", "Pattern", "PnP", "Sleeve Styling", "Length", "Sleeve Length"],
-    'Saree':  ["Blouse Color", "blouse_pattern", "border", "border_width", "color", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type"],
-    // Future: 'Lehenga': [...], 'Dupatta': [...], etc.
+    'Kurti':     ["Color", "Fit/Shape", "Neck", "Occasion", "Ornamentation", "Pattern", "PnP", "Sleeve Styling", "Length", "Sleeve Length"],
+    'Saree':     ["Blouse Color", "blouse_pattern", "border", "border_width", "color", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type"],
+    'Men Shirt': ["closure", "color", "hemline", "length", "neck", "occasion", "pattern", "print_or_pattern_type", "sleeve_length", "sleeve_styling", "fit_shape"],
   };
 
-
-
-
   const CATEGORY_COLORS = {
-    'Kurti': '#7c3aed',
-    'Saree': '#db2777',
-    'default': '#2563eb'
+    'Kurti':     '#7c3aed',
+    'Saree':     '#db2777',
+    'Men Shirt': '#0d9488',
+    'default':   '#2563eb'
   };
 
   const renderSingleCategoryTable = (categoryLabel, categoryJobs, allTotalCount, showCancel) => {
@@ -606,28 +604,30 @@ function App() {
 
     // ✅ FIX 2: Export/Copy uses original order (all category jobs in order, only completed)
     const copyToClipboard = () => {
-      if (completedJobs.length === 0) return;
-      // Use categoryJobs (original order) but only export completed ones
-      const orderedCompleted = categoryJobs.filter(j => j.status === 'completed' && j.result);
+      // ✅ CRITICAL FIX: Always export ALL jobs in original order.
+      // Failed/pending jobs get empty values — this ensures row count
+      // ALWAYS matches the input URL count. Never skip any row.
       const header = ["SL.NO", "IMAGE URL", ...visibleCols].join('\t');
-      const rows = orderedCompleted.map((j, idx) => {
-        const r = [idx + 1, j.previewUrl];
-        visibleCols.forEach(c => r.push(j.result[c] || ''));
+      const rows = categoryJobs.map((j, idx) => {
+        const r = [idx + 1, j.previewUrl || ''];
+        const res = (j.status === 'completed' && j.result && !j.result.error) ? j.result : null;
+        visibleCols.forEach(c => r.push(res ? (res[c] || '') : ''));
         return r.join('\t');
       }).join('\n');
       navigator.clipboard.writeText(`${header}\n${rows}`);
-      showToast(`${categoryLabel} data copied to clipboard!`);
+      showToast(`${categoryLabel} data copied! (${categoryJobs.length} rows)`);
     };
 
     const exportCSV = () => {
-      if (completedJobs.length === 0) return;
-      // Use categoryJobs (original order) but only export completed ones
-      const orderedCompleted = categoryJobs.filter(j => j.status === 'completed' && j.result);
+      if (categoryJobs.length === 0) return;
+      // ✅ CRITICAL FIX: Always export ALL jobs in original order.
+      // Failed/pending jobs get empty values — row count always matches input.
       const header = ["SL.NO", "IMAGE URL", ...visibleCols].join(',');
-      const rows = orderedCompleted.map((j, idx) => {
-        const r = [idx + 1, j.previewUrl];
+      const rows = categoryJobs.map((j, idx) => {
+        const r = [idx + 1, `"${(j.previewUrl || '').replace(/"/g, '""')}"`];
+        const res = (j.status === 'completed' && j.result && !j.result.error) ? j.result : null;
         visibleCols.forEach(c => {
-          const val = (j.result[c] || '').toString().replace(/"/g, '""');
+          const val = res ? (res[c] || '').toString().replace(/"/g, '""') : '';
           r.push(`"${val}"`);
         });
         return r.join(',');

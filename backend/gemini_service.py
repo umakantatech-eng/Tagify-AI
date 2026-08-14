@@ -22,6 +22,10 @@ CATEGORY_REGISTRY = {
     "Saree": {
         "fields": ["color", "Blouse Color", "blouse_pattern", "border", "border_width", "occasion", "ornamentation", "pallu_details", "pattern", "print_or_pattern_type"],
         "description": "A traditional Indian draped garment consisting of a long unstitched cloth, worn with a blouse piece."
+    },
+    "Men Shirt": {
+        "fields": ["closure", "color", "hemline", "length", "neck", "occasion", "pattern", "print_or_pattern_type", "sleeve_length", "sleeve_styling", "fit_shape"],
+        "description": "A men's woven shirt / casual shirt / formal shirt. Has a collar/neckline, buttons/closure, hemline, and sleeves."
     }
 }
 
@@ -34,8 +38,10 @@ SMART_SYSTEM_INSTRUCTION = """You are an expert AI product tagger for Indian fas
 STEP 1: IDENTIFY CATEGORY (for each image independently)
 ═══════════════════════════════════════════════════════
 Look at the garment and pick ONE category:
-- "Kurti": A short/long Indian top garment (kurta/kurti). Worn as a top. Has sleeves, neckline, body length.
+- "Kurti": A short/long Indian top garment for women (kurta/kurti). Worn as a top. Has sleeves, neckline, body length. Typically ethnic Indian style.
 - "Saree": A traditional long draped cloth worn with a blouse. Has a pallu, border, and drape.
+- "Men Shirt": A men's woven shirt (casual, formal, or ethnic). Has a collar/neckline, button closure, distinct hemline. Worn by men as a top.
+  → Key difference from Kurti: Men Shirts are typically straight-cut western-style or casual shirts for men. Kurtis are Indian ethnic tops for women.
 
 ═══════════════════════════════════════════════════════
 STEP 2: EXTRACT ATTRIBUTES based on detected category
@@ -70,6 +76,65 @@ Extract these EXACT fields:
 - Sleeve Styling: [Batwing, Bell, Cap, Cape, Cold Shoulder, Cuffed, Cut Out, Extended, Flared, Flutter, Kimono, One Side Sleeve, Puff, Regular, Roll-Up, Shoulder Strap, Sleeveless, Not Available]
 - Length: [Above Knee, Ankle Length, Calf Length, Knee length, Not Available] — If folded/packet, output "Not Available"
 - Sleeve Length: [Long Sleeves, Short Sleeves, Sleeveless, Three-Quarter Sleeves, Not Available]
+
+━━━ IF CATEGORY = "Men Shirt" ━━━
+Extract these EXACT fields with EXACT key names:
+
+- "closure": [Asymmetrical, Symmetric] — Default: "Symmetric" for most shirts.
+
+- "color": Dominant BASE/BACKGROUND fabric color. MUST output a value.
+  [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Rust, Teal, White, Yellow, Lemon Yellow, Gold, Lavender]
+
+- "hemline": Shape of bottom hem.
+  → If shirt is FOLDED, packaged, or hemline NOT visible → output "Curved"
+  → If Crop length → output "Curved"
+  [Curved, Straight, Asymmetric, High-Low] — Default: "Curved"
+
+- "length": Overall shirt length.
+  → If FOLDED / packaged / length unclear → output "Regular"
+  → "Longline" only if shirt clearly extends well past hips
+  [Regular, Longline, Crop] — Default: "Regular"
+
+- "neck": Collar/neck type. [Mandarin, Collarless, Spread Collar, Hood, Contrast Collar]
+
+- "occasion": Best use occasion.
+  → Default: "Casual"
+  → "Formal" ONLY if shirt is clearly formal (plain solid/self-design, no cargo pockets, worn formally)
+  → "Party" if fabric is SATIN / SHINY / metallic-looking
+  → If shirt has double cargo pockets OR is Cargo → MUST be "Casual"
+  [Casual, Formal, Party]
+
+- "pattern": [Checked, Colorblocked, Dyed/ Washed, Embellished, Printed, Self-Design, Solid, Striped]
+
+- "print_or_pattern_type": Specific motif.
+  ⚠️ MANDATORY CASCADE RULES:
+    • pattern = Solid → "Solid"
+    • pattern = Checked → "Checked"
+    • pattern = Colorblocked → "Colorblocked"
+    • pattern = Striped → "Horizontal Stripes" or "Vertical Stripes" (pick based on stripe direction)
+    • pattern = Dyed/ Washed → "Faded" or "Ombre" only
+    • pattern = Self-Design → "Checked" / "Horizontal Stripes" / "Vertical Stripes" / "Solid" (based on self-design detail)
+    • pattern = Printed → pick specific motif from list below
+  [Abstract, Animal, Back Print, Botanical, Camouflage, Cartoons, Checked, Chevron, Colorblocked, Conversational, Ethnic Motif, Faded, Floral, Geometric, Goa, Graphic Print, Horizontal Stripes, Houndstooth, Micro Print, Newspaper, Ombre, Paisley, Placement Print, Polka Dots, Quirky, Religious Print, Solid, Stripe, Tribal, Typography, Vertical Stripes]
+
+- "sleeve_length":
+  → If sleeves NOT VISIBLE (folded, sleeve cut from image) → output "Long Sleeves"
+  [Short Sleeves, Long Sleeves, Three-Quarter Sleeves] — Default: "Long Sleeves"
+
+- "sleeve_styling":
+  ⚠️ CASCADE RULES (MANDATORY):
+    • sleeve_length = Long Sleeves AND sleeves are ROLLED UP → "Roll-Up"
+    • sleeve_length = Long Sleeves (not rolled) → "Cuffed"
+    • sleeve_length = Short Sleeves → "Regular"
+    • sleeve_length = Three-Quarter Sleeves → "Regular"
+  [Regular, Roll-Up, Cuffed, Elbow Patches, Doctor Sleeves]
+
+- "fit_shape":
+  → If neck = Hood → MUST be "Shackets"
+  → If a T-shirt / inner garment is VISIBLY peeking out from under the shirt → "Shirt Over Tshirt"
+  → If shirt has TWO large chest/cargo pockets (cargo style) OR is clearly a cargo shirt → "Cargo"
+  → Default: "Regular"
+  [Regular, Shackets, Shirt Over Tshirt, Cargo]
 
 ━━━ IF CATEGORY = "Saree" ━━━
 Extract these EXACT fields with EXACT key names as shown:

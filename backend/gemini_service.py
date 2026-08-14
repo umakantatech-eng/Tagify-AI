@@ -56,6 +56,7 @@ Extract these EXACT fields:
   → Use "Multicolor" ONLY if the garment fabric itself has equal amounts of multiple colors (like rainbow tie-dye or big color-block panels with 3+ colors).
   → Do NOT use "Multicolor" just because a print has multiple colored elements on a single-color base.
   → If the same product is shown in multiple color options side by side, pick the COLOR OF THE LARGEST/MOST VISIBLE piece.
+  → STANDARDIZE LIGHT SHADES: If the fabric is off-white, very light beige, or cream (which often looks different due to warm studio lighting), consistently output "Cream" to avoid variations.
   [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Teal, White, Yellow, Lemon Yellow, Gold]
 - Fit/Shape: [A-line, Anarkali, Angrakha, Assymetrical, Flared, Gown, High-Slit, Jacket Kurta, Kaftan, Maternity, Short Kurti, Shrug Kurti, Tiered] — NOTE: Classify any straight-cut as "A-line". If length is Above Knee → "Short Kurti".
 - Neck: [Boat, Halter, Keyhole, Mandarin, Notch, Paan, Round, Scoop, Shirt, Square, Stylised, Surplice, Sweetheart, Tie - Up, V-neck] — NOTE: Notch = small V-slit in round neck. Round = pure circle with NO slit.
@@ -73,9 +74,17 @@ Extract these EXACT fields:
   • Pattern = Printed → PnP = the SPECIFIC print motif: [Abstract, Animal, Botanical, Chevron, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Micro, Paisley, Polka Dot, Quirky, Tribal, Warli]
   • Pattern = Embroidered / Chikankari / Woven Design / Zari Woven → PnP = "Ethnic Motif" (or the closest matching motif)
   [Abstract, Animal, Bandhani, Botanical, Checked, Chevron, Colorblocked, Embellished, Ethnic Motif, Floral, Geometric, Houndstooth, Ikat, Kalamkari, Leheriya, Micro, Paisley, Polka Dot, Quirky, Shibori, Solid, Stripe, Tie and Dye, Tribal, Warli]
-- Sleeve Styling: [Batwing, Bell, Cap, Cape, Cold Shoulder, Cuffed, Cut Out, Extended, Flared, Flutter, Kimono, One Side Sleeve, Puff, Regular, Roll-Up, Shoulder Strap, Sleeveless, Not Available]
+- Sleeve Styling: 
+  → Bell: Sleeve flares out widely at the bottom (like a bell). Prefer "Bell" over "Flared" for this shape.
+  [Batwing, Bell, Cap, Cape, Cold Shoulder, Cuffed, Cut Out, Extended, Flared, Flutter, Kimono, One Side Sleeve, Puff, Regular, Roll-Up, Shoulder Strap, Sleeveless, Not Available]
 - Length: [Above Knee, Ankle Length, Calf Length, Knee length, Not Available] — If folded/packet, output "Not Available"
-- Sleeve Length: [Long Sleeves, Short Sleeves, Sleeveless, Three-Quarter Sleeves, Not Available]
+- Sleeve Length:
+  → Sleeveless: No sleeves at all or just straps.
+  → Short Sleeves: Sleeve ends above the elbow (includes cap sleeves, half sleeves).
+  → Three-Quarter Sleeves: Sleeve ends below the elbow but above the wrist (3/4th length). HINT: If arms are bent and sleeve ends at mid-forearm, it is Three-Quarter.
+  → Long Sleeves: Sleeve reaches all the way down to the wrist.
+  → Not Available: If the sleeves are completely hidden/folded.
+  [Long Sleeves, Short Sleeves, Sleeveless, Three-Quarter Sleeves, Not Available]
 
 ━━━ IF CATEGORY = "Men Shirt" ━━━
 Extract these EXACT fields with EXACT key names:
@@ -83,9 +92,11 @@ Extract these EXACT fields with EXACT key names:
 - "closure": [Asymmetrical, Symmetric] — Default: "Symmetric" for most shirts.
 
 - "color": Dominant BASE/BACKGROUND fabric color. MUST output a value.
+  → If the shirt has a pattern (like Checks, Stripes, Prints) with 3 OR MORE distinct colors → MUST output "Multicolor".
   [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Rust, Teal, White, Yellow, Lemon Yellow, Gold, Lavender]
 
 - "hemline": Shape of bottom hem.
+  → If the back hem is visibly longer/lower than the front hem → MUST output "High-Low".
   → If shirt is FOLDED, packaged, or hemline NOT visible → output "Curved"
   → If Crop length → output "Curved"
   [Curved, Straight, Asymmetric, High-Low] — Default: "Curved"
@@ -95,7 +106,9 @@ Extract these EXACT fields with EXACT key names:
   → "Longline" only if shirt clearly extends well past hips
   [Regular, Longline, Crop] — Default: "Regular"
 
-- "neck": Collar/neck type. [Mandarin, Collarless, Spread Collar, Hood, Contrast Collar]
+- "neck": Collar/neck type.
+  → If the collar's color or pattern is noticeably different from the main body of the shirt → MUST output "Contrast Collar".
+  [Mandarin, Collarless, Spread Collar, Hood, Contrast Collar]
 
 - "occasion": Best use occasion.
   → Default: "Casual"
@@ -122,11 +135,11 @@ Extract these EXACT fields with EXACT key names:
   [Short Sleeves, Long Sleeves, Three-Quarter Sleeves] — Default: "Long Sleeves"
 
 - "sleeve_styling":
-  ⚠️ CASCADE RULES (MANDATORY):
-    • sleeve_length = Long Sleeves AND sleeves are rolled up WITH A VISIBLE BUTTON TAB/TIE holding the roll → "Roll-Up"
-    • sleeve_length = Long Sleeves (even if sleeves are normally rolled up without a tie) → "Cuffed"
-    • sleeve_length = Short Sleeves → "Regular"
-    • sleeve_length = Three-Quarter Sleeves → "Regular"
+  ⚠️ STRICT RULES FOR ROLLED-UP SLEEVES:
+    • If sleeves are rolled up AND held by a VISIBLE BUTTON STRAP/TIE (fita) → MUST output "Roll-Up".
+    • If sleeves are simply rolled up WITHOUT any strap/tie → MUST output "Cuffed".
+    • sleeve_length = Long Sleeves (not rolled) → "Cuffed"
+    • sleeve_length = Short or Three-Quarter Sleeves → "Regular"
   [Regular, Roll-Up, Cuffed, Elbow Patches, Doctor Sleeves]
 
 - "fit_shape":

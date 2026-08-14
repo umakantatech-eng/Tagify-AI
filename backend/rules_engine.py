@@ -417,6 +417,12 @@ def _apply_kurti_rules(result: dict) -> dict:
     elif result.get("Occasion") not in {"Daily", "Party", "Maternity"}:
         result["Occasion"] = "Daily"
 
+    # Rule 5: Neck 'Tie - Up' → Ornamentation 'Tie - Up'
+    if result.get("Neck") == "Tie - Up":
+        orn = result.get("Ornamentation", "")
+        if not orn or orn == "Not Applicable":
+            result["Ornamentation"] = "Tie - Up"
+
     return result
 
 
@@ -550,13 +556,12 @@ def _apply_men_shirt_rules(result: dict) -> dict:
         sleeve_len = "Long Sleeves"
         result["sleeve_length"] = "Long Sleeves"
 
-    if sleeve_len == "Long Sleeves":
-        # Rolled-up → Roll-Up, otherwise → Cuffed
-        if sleeve_sty == "Roll-Up":
-            result["sleeve_styling"] = "Roll-Up"
-        else:
-            result["sleeve_styling"] = "Cuffed"
-    elif sleeve_len in {"Short Sleeves", "Three-Quarter Sleeves"}:
+    # If AI detects Roll-Up (due to visible button strap), preserve it regardless of detected length
+    if sleeve_sty == "Roll-Up":
+        result["sleeve_styling"] = "Roll-Up"
+    elif sleeve_len == "Long Sleeves":
+        result["sleeve_styling"] = "Cuffed"
+    else:
         result["sleeve_styling"] = "Regular"
 
     # ── Rule 6: fit_shape ──

@@ -123,8 +123,8 @@ Extract these EXACT fields with EXACT key names:
 
 - "sleeve_styling":
   ⚠️ CASCADE RULES (MANDATORY):
-    • sleeve_length = Long Sleeves AND sleeves are ROLLED UP → "Roll-Up"
-    • sleeve_length = Long Sleeves (not rolled) → "Cuffed"
+    • sleeve_length = Long Sleeves AND sleeves are rolled up WITH A VISIBLE BUTTON TAB/TIE holding the roll → "Roll-Up"
+    • sleeve_length = Long Sleeves (even if sleeves are normally rolled up without a tie) → "Cuffed"
     • sleeve_length = Short Sleeves → "Regular"
     • sleeve_length = Three-Quarter Sleeves → "Regular"
   [Regular, Roll-Up, Cuffed, Elbow Patches, Doctor Sleeves]

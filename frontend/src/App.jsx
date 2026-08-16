@@ -46,12 +46,48 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkStats, setBulkStats] = useState({ eta: 0, exhausted: 0, active: 0 });
 
+  // Helper to safely save large arrays to localStorage without crashing
+  const safeSetLocalStorageArray = (key, arrayData) => {
+    let dataToSave = arrayData;
+    while (true) {
+      try {
+        localStorage.setItem(key, JSON.stringify(dataToSave));
+        break;
+      } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+          if (Array.isArray(dataToSave) && dataToSave.length > 10) {
+            // Trim oldest 20% to free up space
+            const trimCount = Math.ceil(dataToSave.length * 0.2);
+            dataToSave = dataToSave.slice(trimCount);
+            console.warn(`Quota exceeded for ${key}. Trimmed oldest ${trimCount} items.`);
+          } else {
+            localStorage.removeItem(key);
+            console.error(`Cleared ${key} due to severe quota limits.`);
+            break;
+          }
+        } else {
+          console.error(`Failed to save ${key}:`, e);
+          break;
+        }
+      }
+    }
+    return dataToSave;
+  };
+
   // Sync state to LocalStorage
   useEffect(() => { localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
   useEffect(() => { localStorage.setItem('usageCount', usageCount.toString()); }, [usageCount]);
-  useEffect(() => { localStorage.setItem('tagifyJobs', JSON.stringify(jobs)); }, [jobs]);
-  useEffect(() => { localStorage.setItem('chatHistory', JSON.stringify(chatHistory)); }, [chatHistory]);
+  
+  // Use safe wrapper for potentially massive data
+  useEffect(() => { 
+    const trimmedJobs = safeSetLocalStorageArray('tagifyJobs', jobs);
+    // If it was trimmed, we could update state, but to avoid infinite loops, we just let the next render sync it.
+  }, [jobs]);
+  
+  useEffect(() => { 
+    safeSetLocalStorageArray('chatHistory', chatHistory);
+  }, [chatHistory]);
   useEffect(() => { localStorage.setItem('userName', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('userEmail', userEmail); }, [userEmail]);
 
@@ -167,7 +203,7 @@ function App() {
   const handleSubmit = async () => {
     if (!inputValue.trim() || isLimitExceeded) return;
     
-    const userMessage = { id: Date.now().toString(), role: 'user', content: inputValue };
+    const userMessage = { id: Date.now().toString(), role: 'user', content: inputValue.length > 500 ? inputValue.substring(0, 500) + '... (truncated)' : inputValue };
     setChatHistory(prev => [...prev, userMessage]);
     
     const urls = inputValue.split(/[\s,]+/).filter(u => u.startsWith('http'));

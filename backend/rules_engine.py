@@ -491,15 +491,14 @@ def _apply_saree_rules(result: dict) -> dict:
 # ============================================================
 
 def _apply_men_shirt_rules(result: dict) -> dict:
+    # Hard rule: All shirts are Symmetric closure
+    result["closure"] = "Symmetric"
+    
     pattern  = result.get("pattern", "")
     pnp      = result.get("print_or_pattern_type", "")
     sleeve_len = result.get("sleeve_length", "")
     sleeve_sty = result.get("sleeve_styling", "")
     neck     = result.get("neck", "")
-
-    # ── Rule 1: closure default ──
-    if result.get("closure") not in {"Asymmetrical", "Symmetric"}:
-        result["closure"] = "Symmetric"
 
     # ── Rule 2: hemline ──
     # Folded / crop / hemline not visible → Curved (most shirts are curved)

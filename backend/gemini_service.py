@@ -89,10 +89,11 @@ Extract these EXACT fields:
 ━━━ IF CATEGORY = "Men Shirt" ━━━
 Extract these EXACT fields with EXACT key names:
 
-- "closure": [Asymmetrical, Symmetric] — Default: "Symmetric" for most shirts.
+- "closure": [Symmetric] — MUST output "Symmetric" for all shirts.
 
 - "color": Dominant BASE/BACKGROUND fabric color. MUST output a value.
   → If the shirt has a pattern (like Checks, Stripes, Prints) with 3 OR MORE distinct colors → MUST output "Multicolor".
+  → PEACH vs PINK: If the color is a light orangey-pink or light salmon, prioritize "Peach" over "Pink".
   [Aqua Blue, Beige, Black, Blue, Brown, Cream, Green, Grey, Maroon, Mint Green, Multicolor, Mustard, Navy Blue, Olive, Orange, Peach, Pink, Purple, Red, Rust, Teal, White, Yellow, Lemon Yellow, Gold, Lavender]
 
 - "hemline": Shape of bottom hem.

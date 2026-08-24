@@ -41,6 +41,8 @@ bulk_stats = {
 
 async def api_worker(queue: asyncio.Queue, api_key: str):
     chunk_size = 2
+    consecutive_errors = 0
+    MAX_CONSECUTIVE_ERRORS = 5
     try:
         while True:
             try:
@@ -83,7 +85,7 @@ async def api_worker(queue: asyncio.Queue, api_key: str):
                         bulk_stats["exhausted_keys"].append(api_key)
                     return # Exit worker
 
-                # Success or other error
+                # Success or other error — process each result
                 for idx, ai_result in enumerate(ai_results):
                     job_id = jobs_chunk[idx]["job_id"]
                     if "error" in ai_result:
@@ -96,6 +98,9 @@ async def api_worker(queue: asyncio.Queue, api_key: str):
                         jobs_store[job_id]["result"] = final_result
                         bulk_stats["completed"] += 1
                     queue.task_done()
+                
+                # Reset consecutive error count on success
+                consecutive_errors = 0
                     
                 # Rate limit sleep for this specific worker/key (15 RPM max -> 1 req per 4s. 2.5s is safe)
                 await asyncio.sleep(2.5)
@@ -103,10 +108,30 @@ async def api_worker(queue: asyncio.Queue, api_key: str):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Worker error: {e}")
-                break
+                consecutive_errors += 1
+                print(f"Worker error (attempt {consecutive_errors}/{MAX_CONSECUTIVE_ERRORS}): {e}")
+                
+                # Mark current chunk jobs as failed so they don't stay in "processing" forever
+                for job in jobs_chunk:
+                    if jobs_store.get(job["job_id"], {}).get("status") == "processing":
+                        jobs_store[job["job_id"]]["status"] = "failed"
+                        jobs_store[job["job_id"]]["result"] = {"error": str(e)}
+                        bulk_stats["failed"] += 1
+                        try:
+                            queue.task_done()
+                        except Exception:
+                            pass
+                
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                    print(f"Worker exceeded max consecutive errors. Stopping.")
+                    break
+                    
+                # Wait before retrying to avoid hammering a broken API
+                await asyncio.sleep(5.0)
+                # continue loop — pick up next jobs from queue
     finally:
-        bulk_stats["active_workers"] -= 1
+        bulk_stats["active_workers"] = max(0, bulk_stats["active_workers"] - 1)
+
 
 @app.post("/api/analyze-bulk")
 async def analyze_bulk(payload: UrlAnalyzeRequest, background_tasks: BackgroundTasks, x_user_api_key: Optional[str] = Header(None)):

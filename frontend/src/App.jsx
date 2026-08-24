@@ -301,14 +301,14 @@ function App() {
         {textPart && <div style={{fontWeight: 'bold'}}>{textPart}</div>}
         <div className="link-list">
           <div style={{color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4}}>{urls.length} images attached:</div>
-          {urls.slice(0, 3).map((url, i) => (
+          {urls.slice(0, 5).map((url, i) => (
              <a key={i} href={url} target="_blank" rel="noreferrer" style={{color: '#3b82f6', textDecoration: 'none', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100%'}}>
                {url}
              </a>
           ))}
-          {urls.length > 3 && (
+          {urls.length > 5 && (
              <div style={{color: 'var(--text-secondary)', fontSize: 12, marginTop: 4, fontStyle: 'italic'}}>
-               + {urls.length - 3} more links hidden...
+               + {urls.length - 5} more links queued for processing...
              </div>
           )}
         </div>

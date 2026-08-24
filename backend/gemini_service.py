@@ -210,7 +210,7 @@ Extract these EXACT fields with EXACT key names as shown:
 OUTPUT FORMAT (STRICT)
 ═══════════════════════════════════════════════════════
 Return ONLY a raw JSON ARRAY of N objects. Each object MUST have:
-- "_category": "Kurti" or "Saree" (detected category)
+- "_category": "Kurti" or "Saree" or "Men Shirt" (detected category — pick exactly one)
 - "Reasoning": Brief visual analysis explaining category detection + key classification decisions
 - "Confidence": "High" / "Medium" / "Low"
 - All fields for the detected category (listed above)
@@ -262,15 +262,18 @@ ADDITIONAL USER REQUEST: The user specifically asked about: "{custom_prompt_text
 Focus extra attention on accurately tagging attributes related to this request. Still output ALL standard fields for the detected category.
 """
     
-    # Build image parts
+    # Build image parts — track EXACT mapping of part index → task index
     parts = []
+    task_index_map = []  # task_index_map[part_image_idx] = original task idx
+    
     for i, task in enumerate(tasks):
         img_data = task["data"]
         
         if task["is_url"]:
             img_bytes = download_image(img_data)
             if not img_bytes:
-                parts.append({"text": f"Product {i+1}: Image failed to download."})
+                # Don't add a part — this task will get error result via the map
+                print(f"Image download failed for task {i}: {img_data}")
                 continue
         else:
             img_bytes = img_data
@@ -290,16 +293,19 @@ Focus extra attention on accurately tagging attributes related to this request. 
                     "data": b64_img
                 }
             })
-            parts.append({"text": f"Product {i+1}"})
+            parts.append({"text": f"Product {len(task_index_map) + 1}"})
+            task_index_map.append(i)  # This part belongs to task index i
         except Exception as e:
-            print(f"Image processing error for product {i+1}: {e}")
-            parts.append({"text": f"Product {i+1}: Invalid image data."})
+            print(f"Image processing error for task {i}: {e}")
+            # Skip this task — it will get error result via the map
+            continue
             
-    if not parts:
-        return [{"error": "No valid images provided"}] * len(tasks)
+    if not task_index_map:
+        return [{"error": "No valid images could be downloaded or processed"}] * len(tasks)
         
+    num_valid = len(task_index_map)
     parts.append({
-        "text": f"Analyze the {len(tasks)} provided products. Detect the category of EACH product independently. Return a JSON ARRAY of exactly {len(tasks)} objects."
+        "text": f"Analyze the {num_valid} provided products. Detect the category of EACH product independently. Return a JSON ARRAY of exactly {num_valid} objects."
     })
 
     payload = {
@@ -336,15 +342,23 @@ Focus extra attention on accurately tagging attributes related to this request. 
                     result_json = json.loads(text_response)
                     if not isinstance(result_json, list):
                         result_json = [result_json]
-                        
-                    # Pad if AI returned fewer results
-                    while len(result_json) < len(tasks):
+                    
+                    # Pad AI results to number of valid images (task_index_map length)
+                    while len(result_json) < num_valid:
                         result_json.append({"error": "AI did not return data for this product"})
-                        
-                    return result_json[:len(tasks)]
+                    
+                    # ✅ CRITICAL: Reassemble results in ORIGINAL task order
+                    # task_index_map tells us which task each AI result belongs to
+                    final_results = [{"error": "Image download or processing failed"}] * len(tasks)
+                    for part_idx, task_idx in enumerate(task_index_map):
+                        if part_idx < len(result_json):
+                            final_results[task_idx] = result_json[part_idx]
+                    
+                    return final_results
+                    
                 except json.JSONDecodeError:
                     print(f"JSON parse error. Raw response: {text_response[:500]}")
-                    return [{"error": "Invalid JSON response from AI", "raw": text_response}] * len(tasks)
+                    return [{"error": "Invalid JSON response from AI"}] * len(tasks)
 
     except Exception as e:
         if "429" in str(e):

@@ -42,7 +42,6 @@ bulk_stats = {
 async def api_worker(queue: asyncio.Queue, api_key: str):
     chunk_size = 2
     consecutive_errors = 0
-    MAX_CONSECUTIVE_ERRORS = 5
     try:
         while True:
             try:
@@ -73,17 +72,16 @@ async def api_worker(queue: asyncio.Queue, api_key: str):
                 
                 # Check if it was a 429 Too Many Requests (Rate limit or Daily Quota)
                 if ai_results and "error" in ai_results[0] and "429" in str(ai_results[0]["error"]):
-                    print(f"API Key {api_key[-4:] if api_key else 'None'} got 429 Limit Exhausted! Putting jobs back in queue.")
+                    print(f"API Key {api_key[-4:] if api_key else 'None'} hit rate limit (429)! Re-queueing jobs and waiting 20s for RPM window to reset...")
                     # Put jobs back in queue
                     for job in jobs_chunk:
                         jobs_store[job["job_id"]]["status"] = "queued"
                         await queue.put(job)
-                        queue.task_done() # we mark the original pulled ones as done, since we re-added them
-                        
-                    # Mark this key as exhausted and shut down this worker
-                    if api_key not in bulk_stats["exhausted_keys"]:
-                        bulk_stats["exhausted_keys"].append(api_key)
-                    return # Exit worker
+                        queue.task_done() # mark original pulled ones as done since we re-added them
+                    
+                    # DO NOT terminate worker! Wait 20 seconds for rate limit to reset and continue!
+                    await asyncio.sleep(20.0)
+                    continue
 
                 # Success or other error — process each result
                 for idx, ai_result in enumerate(ai_results):
@@ -102,33 +100,36 @@ async def api_worker(queue: asyncio.Queue, api_key: str):
                 # Reset consecutive error count on success
                 consecutive_errors = 0
                     
-                # Rate limit sleep for this specific worker/key (15 RPM max -> 1 req per 4s. 2.5s is safe)
-                await asyncio.sleep(2.5)
+                # Safe rate limit sleep for free tier (15 RPM max -> 1 req per 4s ensures steady flow without 429)
+                await asyncio.sleep(4.0)
                 
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 consecutive_errors += 1
-                print(f"Worker error (attempt {consecutive_errors}/{MAX_CONSECUTIVE_ERRORS}): {e}")
+                print(f"Worker error (attempt {consecutive_errors}): {e}")
                 
-                # Mark current chunk jobs as failed so they don't stay in "processing" forever
+                # Re-queue jobs with retry counter so temporary network hiccups don't lose data
                 for job in jobs_chunk:
-                    if jobs_store.get(job["job_id"], {}).get("status") == "processing":
+                    retries = job.get("_retries", 0)
+                    if retries < 3:
+                        job["_retries"] = retries + 1
+                        jobs_store[job["job_id"]]["status"] = "queued"
+                        await queue.put(job)
+                    else:
                         jobs_store[job["job_id"]]["status"] = "failed"
                         jobs_store[job["job_id"]]["result"] = {"error": str(e)}
                         bulk_stats["failed"] += 1
-                        try:
-                            queue.task_done()
-                        except Exception:
-                            pass
+                    try:
+                        queue.task_done()
+                    except Exception:
+                        pass
                 
-                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
-                    print(f"Worker exceeded max consecutive errors. Stopping.")
-                    break
-                    
-                # Wait before retrying to avoid hammering a broken API
-                await asyncio.sleep(5.0)
-                # continue loop — pick up next jobs from queue
+                # Exponential backoff on errors: 5s, 10s, up to 25s
+                wait_time = min(25.0, 5.0 * consecutive_errors)
+                print(f"Pausing {wait_time}s before next queue item...")
+                await asyncio.sleep(wait_time)
+                continue  # Keep worker alive until queue is empty
     finally:
         bulk_stats["active_workers"] = max(0, bulk_stats["active_workers"] - 1)
 
